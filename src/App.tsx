@@ -8,6 +8,7 @@ import { calculateFluidPrescription } from './calculators/fluid'
 import { steps } from './clinical/config'
 import { visibleFields } from './flow/engine'
 import type { FieldConfig, FormState } from './flow/types'
+import { buildPrescriptionSummary } from './output/prescription'
 import {
   validatePrescription,
   type ValidationIssue,
@@ -19,6 +20,11 @@ const severityRank: Record<ValidationSeverity, number> = {
   warning: 2,
   info: 1,
 }
+
+const navigationSteps = [
+  ...steps.map((step) => ({ id: step.id, title: step.title })),
+  { id: 'result', title: '结果' },
+]
 
 function strongestSeverity(issues: ValidationIssue[]) {
   return issues.reduce<ValidationSeverity | undefined>((current, issue) => {
@@ -189,13 +195,42 @@ function ValidationPanel({
   )
 }
 
+async function copyTextWithFallback(text: string) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text)
+      return true
+    } catch {
+      // file:// 或医院浏览器可能不开放 Clipboard API，继续走离线兼容回退。
+    }
+  }
+
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.setAttribute('readonly', '')
+  textarea.style.position = 'fixed'
+  textarea.style.opacity = '0'
+  textarea.style.pointerEvents = 'none'
+  document.body.appendChild(textarea)
+  textarea.select()
+  textarea.setSelectionRange(0, textarea.value.length)
+
+  try {
+    return document.execCommand('copy')
+  } finally {
+    document.body.removeChild(textarea)
+  }
+}
+
 export default function App() {
   const [stepIndex, setStepIndex] = useState(0)
   const [state, setState] = useState<FormState>({})
   const [otherValues, setOtherValues] = useState<Record<string, string>>({})
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
 
-  const step = steps[stepIndex]
-  const fields = visibleFields(step.fields, state)
+  const isResultStep = stepIndex === steps.length
+  const step = isResultStep ? undefined : steps[stepIndex]
+  const fields = step ? visibleFields(step.fields, state) : []
 
   const fluidResult = useMemo(
     () =>
@@ -345,27 +380,67 @@ export default function App() {
   const hasAnticoagulationInput = Boolean(state.anticoagulation)
   const hasElectrolyteInputs = Boolean(
     state.anticoagulation === 'citrate' ||
-      state.bicarbonatePreparation ||
       state.bicarbonateBaseMmolL !== undefined ||
       state.bicarbonateTargetMmolL !== undefined ||
-      state.potassiumChloridePreparation ||
+      state.bicarbonateCarrierFlowMlH !== undefined ||
       state.potassiumBaseMmolL !== undefined ||
-      state.potassiumTargetMmolL !== undefined,
+      state.potassiumTargetMmolL !== undefined ||
+      state.potassiumBagVolumeL !== undefined,
   )
+
+  const prescriptionText = useMemo(
+    () =>
+      buildPrescriptionSummary({
+        inputRows: summary.map(({ label, value }) => ({ label, value })),
+        fluid: fluidResult,
+        anticoagulation: anticoagulationResult,
+        electrolytes: electrolyteResult,
+        validationIssues: validationResult.issues,
+      }),
+    [summary, fluidResult, anticoagulationResult, electrolyteResult, validationResult.issues],
+  )
+
+  const hasCoreInputs =
+    typeof state.weight === 'number' &&
+    state.weight > 0 &&
+    typeof state.targetDose === 'number' &&
+    state.targetDose > 0 &&
+    typeof state.mode === 'string'
+  const canCopy =
+    hasCoreInputs &&
+    !validationResult.hasErrors &&
+    fluidResult.status === 'ready'
+
+  const clearAll = () => {
+    setState({})
+    setOtherValues({})
+    setStepIndex(0)
+    setCopyState('idle')
+  }
+
+  const updateField = (fieldId: string, value: string | number | undefined) => {
+    setCopyState('idle')
+    setState((current) => ({ ...current, [fieldId]: value }))
+  }
+
+  const updateOther = (fieldId: string, value: string) => {
+    setCopyState('idle')
+    setOtherValues((current) => ({ ...current, [fieldId]: value }))
+  }
 
   return (
     <main className="app-shell">
       <header className="page-header">
         <div>
           <div className="eyebrow">CRRT / CBP</div>
-          <h1>透析处方计算器 · Phase 5</h1>
-          <p>已接入液体量、抗凝、电解质 / 缓冲液换算与实时防呆校验。</p>
+          <h1>透析处方计算器 · Phase 6</h1>
+          <p>液体量、抗凝、电解质 / 缓冲液、实时校验与最终处方摘要已串成完整主流程。</p>
         </div>
         <span className="demo-badge">OFFLINE READY</span>
       </header>
 
       <div className="stepper" aria-label="步骤">
-        {steps.map((item, index) => (
+        {navigationSteps.map((item, index) => (
           <button
             type="button"
             key={item.id}
@@ -378,174 +453,308 @@ export default function App() {
         ))}
       </div>
 
-      <div className="workspace">
-        <section className="card form-card">
-          <div className="card-heading">
-            <div>
-              <div className="step-count">STEP {stepIndex + 1} / {steps.length}</div>
-              <h2>{step.title}</h2>
+      {isResultStep ? (
+        <div className="final-workspace">
+          <section className="card final-card">
+            <div className="final-heading">
+              <div>
+                <div className="step-count">FINAL RESULT</div>
+                <h2>处方参数摘要</h2>
+                <p className="step-description">核对结果后可复制文本，粘贴到院内允许使用的位置。</p>
+              </div>
+              <div
+                className={`final-status ${
+                  validationResult.hasErrors
+                    ? 'error'
+                    : validationResult.warnings.length > 0
+                      ? 'warning'
+                      : canCopy
+                        ? 'ready'
+                        : 'muted'
+                }`}
+              >
+                {validationResult.hasErrors
+                  ? `存在错误 ${validationResult.errors.length}`
+                  : validationResult.warnings.length > 0
+                    ? `需核对 ${validationResult.warnings.length}`
+                    : canCopy
+                      ? '可复制'
+                      : '尚未完成'}
+              </div>
             </div>
-          </div>
 
-          {step.description && <p className="step-description">{step.description}</p>}
+            <ValidationPanel
+              issues={validationResult.issues}
+              errorCount={validationResult.errors.length}
+              warningCount={validationResult.warnings.length}
+              hasAnyInput={hasAnyInput}
+            />
 
-          <div className="fields">
-            {fields.map((field) => (
-              <Field
-                key={field.id}
-                field={field}
-                value={state[field.id]}
-                otherValue={otherValues[field.id]}
-                issues={validationResult.byField[field.id] ?? []}
-                onChange={(value) =>
-                  setState((current) => ({ ...current, [field.id]: value }))
-                }
-                onOtherChange={(value) =>
-                  setOtherValues((current) => ({ ...current, [field.id]: value }))
-                }
-              />
-            ))}
-          </div>
+            {!hasAnyInput ? (
+              <div className="empty-state">还没有录入参数。返回前面的步骤开始填写即可。</div>
+            ) : (
+              <>
+                <div className="final-grid">
+                  <div>
+                    <div className="result-section-title">液体量</div>
+                    <div className="calculation-panel">
+                      {fluidResult.targetEffluentMlH !== undefined && (
+                        <ResultRow
+                          label="目标总流出液量"
+                          value={`${fluidResult.targetEffluentMlH} mL/h`}
+                        />
+                      )}
+                      {fluidResult.clearanceFluidMlH !== undefined && (
+                        <ResultRow
+                          label="置换液 + 透析液"
+                          value={`${fluidResult.clearanceFluidMlH} mL/h`}
+                        />
+                      )}
+                      {fluidResult.replacementFlowMlH !== undefined && (
+                        <ResultRow
+                          label="置换液速度"
+                          value={`${fluidResult.replacementFlowMlH} mL/h`}
+                        />
+                      )}
+                      {fluidResult.dialysateFlowMlH !== undefined && (
+                        <ResultRow
+                          label="透析液速度"
+                          value={`${fluidResult.dialysateFlowMlH} mL/h`}
+                        />
+                      )}
+                      <ResultRow label="净超滤速度" value={`${fluidResult.netUfMlH} mL/h`} />
+                    </div>
+                  </div>
 
-          <div className="nav-row">
-            <button
-              type="button"
-              className="secondary-button"
-              disabled={stepIndex === 0}
-              onClick={() => setStepIndex((index) => Math.max(0, index - 1))}
-            >
-              上一步
-            </button>
-            <button
-              type="button"
-              className="primary-button"
-              disabled={stepIndex === steps.length - 1}
-              onClick={() => setStepIndex((index) => Math.min(steps.length - 1, index + 1))}
-            >
-              下一步
-            </button>
-          </div>
-        </section>
-
-        <aside className="card summary-card">
-          <div className="summary-title-row">
-            <div>
-              <div className="step-count">REAL-TIME</div>
-              <h2>计算结果</h2>
-            </div>
-            <button
-              type="button"
-              className="text-button"
-              onClick={() => {
-                setState({})
-                setOtherValues({})
-                setStepIndex(0)
-              }}
-            >
-              清空
-            </button>
-          </div>
-
-          <ValidationPanel
-            issues={validationResult.issues}
-            errorCount={validationResult.errors.length}
-            warningCount={validationResult.warnings.length}
-            hasAnyInput={hasAnyInput}
-          />
-
-          <div className="result-section-title">液体量</div>
-          {!hasFluidInputs ? (
-            <div className="empty-state compact">录入体重、模式和目标治疗剂量后开始计算。</div>
-          ) : (
-            <div className="calculation-panel">
-              {fluidResult.targetEffluentMlH !== undefined && (
-                <ResultRow
-                  label="目标总流出液量"
-                  value={`${fluidResult.targetEffluentMlH} mL/h`}
-                />
-              )}
-              {fluidResult.clearanceFluidMlH !== undefined && (
-                <ResultRow
-                  label="置换液 + 透析液"
-                  value={`${fluidResult.clearanceFluidMlH} mL/h`}
-                />
-              )}
-              {fluidResult.replacementFlowMlH !== undefined && (
-                <ResultRow
-                  label="置换液速度"
-                  value={`${fluidResult.replacementFlowMlH} mL/h`}
-                />
-              )}
-              {fluidResult.dialysateFlowMlH !== undefined && (
-                <ResultRow
-                  label="透析液速度"
-                  value={`${fluidResult.dialysateFlowMlH} mL/h`}
-                />
-              )}
-              <ResultRow label="净超滤速度" value={`${fluidResult.netUfMlH} mL/h`} />
-
-              {fluidResult.messages.map((message) => (
-                <div
-                  className={`result-message ${fluidResult.status === 'invalid' ? 'error' : ''}`}
-                  key={message}
-                >
-                  {message}
+                  <div>
+                    <div className="result-section-title">抗凝</div>
+                    {hasAnticoagulationInput ? (
+                      <div className="calculation-panel">
+                        <div className="calculation-caption">{anticoagulationResult.title}</div>
+                        {anticoagulationResult.rows.map((row) => (
+                          <ResultRow
+                            key={`${row.label}-${row.value}`}
+                            label={row.label}
+                            value={row.value}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="empty-state compact">未选择抗凝，按选填项留空。</div>
+                    )}
+                  </div>
                 </div>
+
+                <div className="result-section-title">电解质 / 缓冲液</div>
+                {hasElectrolyteInputs ? (
+                  <div className="final-grid three">
+                    <ComponentResultBlock result={electrolyteResult.calcium} />
+                    <ComponentResultBlock result={electrolyteResult.bicarbonate} />
+                    <ComponentResultBlock result={electrolyteResult.potassium} />
+                  </div>
+                ) : (
+                  <div className="empty-state compact">未启用补钙、补碱或补钾计算，按选填项留空。</div>
+                )}
+
+                <div className="result-section-title">可复制文本</div>
+                <pre className="copy-preview">{prescriptionText}</pre>
+
+                {!canCopy && (
+                  <div className="copy-blocked-note">
+                    {validationResult.hasErrors
+                      ? '当前存在 Error 级校验问题，修正后才能复制处方摘要。'
+                      : '请先完成体重、治疗模式、目标治疗剂量和液体量主流程，再复制摘要。'}
+                  </div>
+                )}
+              </>
+            )}
+
+            <div className="final-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setStepIndex(Math.max(0, steps.length - 1))}
+              >
+                返回修改
+              </button>
+              <button type="button" className="secondary-button" onClick={clearAll}>
+                清空重算
+              </button>
+              <button
+                type="button"
+                className="primary-button"
+                disabled={!canCopy}
+                onClick={async () => {
+                  const copied = await copyTextWithFallback(prescriptionText)
+                  setCopyState(copied ? 'copied' : 'failed')
+                }}
+              >
+                {copyState === 'copied'
+                  ? '已复制'
+                  : copyState === 'failed'
+                    ? '复制失败'
+                    : '复制处方摘要'}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : (
+        <div className="workspace">
+          <section className="card form-card">
+            <div className="card-heading">
+              <div>
+                <div className="step-count">STEP {stepIndex + 1} / {steps.length}</div>
+                <h2>{step?.title}</h2>
+              </div>
+            </div>
+
+            {step?.description && <p className="step-description">{step.description}</p>}
+
+            <div className="fields">
+              {fields.map((field) => (
+                <Field
+                  key={field.id}
+                  field={field}
+                  value={state[field.id]}
+                  otherValue={otherValues[field.id]}
+                  issues={validationResult.byField[field.id] ?? []}
+                  onChange={(value) => updateField(field.id, value)}
+                  onOtherChange={(value) => updateOther(field.id, value)}
+                />
               ))}
             </div>
-          )}
 
-          <div className="result-section-title">抗凝</div>
-          {!hasAnticoagulationInput ? (
-            <div className="empty-state compact">选择抗凝方式后显示对应计算。</div>
-          ) : (
-            <div className="calculation-panel">
-              <div className="calculation-caption">{anticoagulationResult.title}</div>
-              {anticoagulationResult.rows.map((row) => (
-                <ResultRow key={`${row.label}-${row.value}`} label={row.label} value={row.value} />
-              ))}
-              {anticoagulationResult.messages.map((message) => (
-                <div
-                  className={`result-message ${anticoagulationResult.status === 'invalid' ? 'error' : ''}`}
-                  key={message}
-                >
-                  {message}
-                </div>
-              ))}
+            <div className="nav-row">
+              <button
+                type="button"
+                className="secondary-button"
+                disabled={stepIndex === 0}
+                onClick={() => setStepIndex((index) => Math.max(0, index - 1))}
+              >
+                上一步
+              </button>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => setStepIndex((index) => Math.min(steps.length, index + 1))}
+              >
+                {stepIndex === steps.length - 1 ? '查看结果' : '下一步'}
+              </button>
             </div>
-          )}
+          </section>
 
-          <div className="result-section-title">电解质 / 缓冲液</div>
-          {!hasElectrolyteInputs ? (
-            <div className="empty-state compact">填写补钙、补碱或补钾参数后显示对应换算。</div>
-          ) : (
-            <>
-              <ComponentResultBlock result={electrolyteResult.calcium} />
-              <ComponentResultBlock result={electrolyteResult.bicarbonate} />
-              <ComponentResultBlock result={electrolyteResult.potassium} />
-            </>
-          )}
+          <aside className="card summary-card">
+            <div className="summary-title-row">
+              <div>
+                <div className="step-count">REAL-TIME</div>
+                <h2>计算结果</h2>
+              </div>
+              <button type="button" className="text-button" onClick={clearAll}>
+                清空
+              </button>
+            </div>
 
-          {summary.length > 0 && (
-            <>
-              <div className="summary-divider" />
-              <div className="step-count">CURRENT INPUTS</div>
-              <dl className="summary-list">
-                {summary.map((item) => (
-                  <div key={item.key} className="summary-item">
-                    <dt>{item.label}</dt>
-                    <dd>{item.value}</dd>
+            <ValidationPanel
+              issues={validationResult.issues}
+              errorCount={validationResult.errors.length}
+              warningCount={validationResult.warnings.length}
+              hasAnyInput={hasAnyInput}
+            />
+
+            <div className="result-section-title">液体量</div>
+            {!hasFluidInputs ? (
+              <div className="empty-state compact">录入体重、模式和目标治疗剂量后开始计算。</div>
+            ) : (
+              <div className="calculation-panel">
+                {fluidResult.targetEffluentMlH !== undefined && (
+                  <ResultRow
+                    label="目标总流出液量"
+                    value={`${fluidResult.targetEffluentMlH} mL/h`}
+                  />
+                )}
+                {fluidResult.clearanceFluidMlH !== undefined && (
+                  <ResultRow
+                    label="置换液 + 透析液"
+                    value={`${fluidResult.clearanceFluidMlH} mL/h`}
+                  />
+                )}
+                {fluidResult.replacementFlowMlH !== undefined && (
+                  <ResultRow
+                    label="置换液速度"
+                    value={`${fluidResult.replacementFlowMlH} mL/h`}
+                  />
+                )}
+                {fluidResult.dialysateFlowMlH !== undefined && (
+                  <ResultRow
+                    label="透析液速度"
+                    value={`${fluidResult.dialysateFlowMlH} mL/h`}
+                  />
+                )}
+                <ResultRow label="净超滤速度" value={`${fluidResult.netUfMlH} mL/h`} />
+
+                {fluidResult.messages.map((message) => (
+                  <div
+                    className={`result-message ${fluidResult.status === 'invalid' ? 'error' : ''}`}
+                    key={message}
+                  >
+                    {message}
                   </div>
                 ))}
-              </dl>
-            </>
-          )}
+              </div>
+            )}
 
-          <div className="summary-note">
-            Phase 5 校验层只检查已接入公式所需的缺项、数学冲突、已明确的指南范围和当前版本不支持的组合；不会根据单次化验或病情自动替医生选择治疗目标。
-          </div>
-        </aside>
-      </div>
+            <div className="result-section-title">抗凝</div>
+            {!hasAnticoagulationInput ? (
+              <div className="empty-state compact">抗凝为选填；选择后显示对应计算。</div>
+            ) : (
+              <div className="calculation-panel">
+                <div className="calculation-caption">{anticoagulationResult.title}</div>
+                {anticoagulationResult.rows.map((row) => (
+                  <ResultRow key={`${row.label}-${row.value}`} label={row.label} value={row.value} />
+                ))}
+                {anticoagulationResult.messages.map((message) => (
+                  <div
+                    className={`result-message ${anticoagulationResult.status === 'invalid' ? 'error' : ''}`}
+                    key={message}
+                  >
+                    {message}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="result-section-title">电解质 / 缓冲液</div>
+            {!hasElectrolyteInputs ? (
+              <div className="empty-state compact">补钙、补碱和补钾均为按需计算。</div>
+            ) : (
+              <>
+                <ComponentResultBlock result={electrolyteResult.calcium} />
+                <ComponentResultBlock result={electrolyteResult.bicarbonate} />
+                <ComponentResultBlock result={electrolyteResult.potassium} />
+              </>
+            )}
+
+            {summary.length > 0 && (
+              <>
+                <div className="summary-divider" />
+                <div className="step-count">CURRENT INPUTS</div>
+                <dl className="summary-list">
+                  {summary.map((item) => (
+                    <div key={item.key} className="summary-item">
+                      <dt>{item.label}</dt>
+                      <dd>{item.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </>
+            )}
+
+            <div className="summary-note">
+              Phase 6 继续把医学目标留给临床医生；页面负责换算、校验和整理成可复制的处方参数摘要。
+            </div>
+          </aside>
+        </div>
+      )}
     </main>
   )
 }
