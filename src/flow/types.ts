@@ -1,9 +1,12 @@
 export type FormValue = string | number | undefined
 export type FormState = Record<string, FormValue>
 
+export type OptionMeta = Record<string, string | number | boolean>
+
 export type Option = {
   value: string
   label: string
+  meta?: OptionMeta
 }
 
 export type VisibilityRule =
@@ -17,8 +20,10 @@ export type FieldConfig = {
   options?: Option[]
   unit?: string
   placeholder?: string
+  helpText?: string
   allowOther?: boolean
   visibleIf?: VisibilityRule
+  purpose?: 'calculation' | 'context'
 }
 
 export type StepConfig = {
