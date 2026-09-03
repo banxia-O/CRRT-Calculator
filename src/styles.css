@@ -11,6 +11,11 @@ body { margin: 0; min-width: 320px; min-height: 100vh; }
 button, input { font: inherit; }
 button { cursor: pointer; }
 
+/* 数字字段保留 number 语义和校验，但隐藏浏览器上下微调箭头，避免临床录入时误点。 */
+input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
 .app-shell { max-width: 1180px; margin: 0 auto; padding: 36px 24px 64px; }
 .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
 .eyebrow, .step-count { font-size: 12px; letter-spacing: .12em; font-weight: 700; color: #6b7280; }
