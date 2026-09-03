@@ -1,6 +1,14 @@
 import type { FieldConfig, FormState, VisibilityRule } from './types'
 
-function matches(rule: VisibilityRule, state: FormState) {
+function matches(rule: VisibilityRule, state: FormState): boolean {
+  if (rule.operator === 'all') {
+    return rule.rules.every((child) => matches(child, state))
+  }
+
+  if (rule.operator === 'any') {
+    return rule.rules.some((child) => matches(child, state))
+  }
+
   const current = state[rule.field]
 
   if (rule.operator === 'equals') {
