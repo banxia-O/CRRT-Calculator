@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { calculateAnticoagulation } from './calculators/anticoagulation'
 import { calculateFluidPrescription } from './calculators/fluid'
 import { steps } from './clinical/config'
 import { visibleFields } from './flow/engine'
@@ -108,6 +109,32 @@ export default function App() {
     [state],
   )
 
+  const anticoagulationResult = useMemo(
+    () =>
+      calculateAnticoagulation({
+        method:
+          typeof state.anticoagulation === 'string' ? state.anticoagulation : undefined,
+        weightKg: typeof state.weight === 'number' ? state.weight : undefined,
+        bloodFlowMlMin:
+          typeof state.bloodFlow === 'number' ? state.bloodFlow : undefined,
+        citratePreparation:
+          typeof state.citratePreparation === 'string'
+            ? state.citratePreparation
+            : undefined,
+        citrateCustomMmolL:
+          typeof state.citrateCustomMmolL === 'number'
+            ? state.citrateCustomMmolL
+            : undefined,
+        citrateTargetMmolL:
+          typeof state.citrateTarget === 'number' ? state.citrateTarget : undefined,
+        heparinConcentrationIuMl:
+          typeof state.heparinConcentration === 'number'
+            ? state.heparinConcentration
+            : undefined,
+      }),
+    [state],
+  )
+
   const summary = useMemo(() => {
     const allVisibleFields = steps.flatMap((item) => visibleFields(item.fields, state))
     const visibleIds = new Set(allVisibleFields.map((field) => field.id))
@@ -141,14 +168,15 @@ export default function App() {
   }, [state, otherValues])
 
   const hasFluidInputs = Boolean(state.weight || state.targetDose || state.mode)
+  const hasAnticoagulationInput = Boolean(state.anticoagulation)
 
   return (
     <main className="app-shell">
       <header className="page-header">
         <div>
           <div className="eyebrow">CRRT / CBP</div>
-          <h1>透析处方计算器 · Phase 2</h1>
-          <p>已接入体重、治疗剂量、净超滤与置换液/透析液流量计算。</p>
+          <h1>透析处方计算器 · Phase 3</h1>
+          <p>已接入液体量、局部枸橼酸抗凝与普通肝素初始剂量换算。</p>
         </div>
         <span className="demo-badge">OFFLINE READY</span>
       </header>
@@ -234,8 +262,9 @@ export default function App() {
             </button>
           </div>
 
+          <div className="result-section-title">液体量</div>
           {!hasFluidInputs ? (
-            <div className="empty-state">录入体重、模式和目标治疗剂量后开始计算。</div>
+            <div className="empty-state compact">录入体重、模式和目标治疗剂量后开始计算。</div>
           ) : (
             <div className="calculation-panel">
               {fluidResult.targetEffluentMlH !== undefined && (
@@ -275,6 +304,26 @@ export default function App() {
             </div>
           )}
 
+          <div className="result-section-title">抗凝</div>
+          {!hasAnticoagulationInput ? (
+            <div className="empty-state compact">选择抗凝方式后显示对应计算。</div>
+          ) : (
+            <div className="calculation-panel">
+              <div className="calculation-caption">{anticoagulationResult.title}</div>
+              {anticoagulationResult.rows.map((row) => (
+                <ResultRow key={`${row.label}-${row.value}`} label={row.label} value={row.value} />
+              ))}
+              {anticoagulationResult.messages.map((message) => (
+                <div
+                  className={`result-message ${anticoagulationResult.status === 'invalid' ? 'error' : ''}`}
+                  key={message}
+                >
+                  {message}
+                </div>
+              ))}
+            </div>
+          )}
+
           {summary.length > 0 && (
             <>
               <div className="summary-divider" />
@@ -291,7 +340,7 @@ export default function App() {
           )}
 
           <div className="summary-note">
-            Phase 2 仅做液体量换算。目标治疗剂量由临床医生设定；CVVHDF 的置换液/透析液比例无唯一固定值，因此需要明确选择比例。
+            Phase 3 输出的是初始换算值或指南范围。枸橼酸应根据滤器后离子钙动态调整；普通肝素应根据 APTT / 抗 Xa 活性和出血风险调整。钙、NaHCO₃、KCl 在 Phase 4 接入。
           </div>
         </aside>
       </div>
