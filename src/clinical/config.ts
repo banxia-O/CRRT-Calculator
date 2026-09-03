@@ -146,7 +146,13 @@ export const steps: StepConfig[] = [
         type: 'number',
         unit: 'mmol/L',
         placeholder: '请输入枸橼酸根实际浓度',
-        visibleIf: { field: 'citratePreparation', operator: 'equals', value: '__other__' },
+        visibleIf: {
+          operator: 'all',
+          rules: [
+            { field: 'anticoagulation', operator: 'equals', value: 'citrate' },
+            { field: 'citratePreparation', operator: 'equals', value: '__other__' },
+          ],
+        },
         helpText: '为避免百分浓度与具体盐型换算混淆，自定义制剂直接录入枸橼酸根浓度。',
         purpose: 'calculation',
       },
@@ -198,7 +204,13 @@ export const steps: StepConfig[] = [
         type: 'number',
         unit: '%',
         placeholder: '请输入实际规格',
-        visibleIf: { field: 'calciumGluconatePreparation', operator: 'equals', value: '__other__' },
+        visibleIf: {
+          operator: 'all',
+          rules: [
+            { field: 'anticoagulation', operator: 'equals', value: 'citrate' },
+            { field: 'calciumGluconatePreparation', operator: 'equals', value: '__other__' },
+          ],
+        },
         purpose: 'calculation',
       },
       {
