@@ -51,7 +51,10 @@ p { color: #6b7280; margin: 0; }
 button:disabled { opacity: .4; cursor: not-allowed; }
 .text-button { border: 0; background: transparent; color: #6b7280; padding: 5px; }
 .empty-state { margin-top: 28px; padding: 28px 18px; border: 1px dashed #d1d5db; border-radius: 14px; text-align: center; color: #9ca3af; }
-.calculation-panel { margin-top: 22px; border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; }
+.empty-state.compact { margin-top: 10px; padding: 16px 14px; font-size: 13px; }
+.result-section-title { margin-top: 22px; font-size: 13px; font-weight: 800; letter-spacing: .08em; color: #4b5563; }
+.calculation-panel { margin-top: 10px; border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; }
+.calculation-caption { padding: 11px 14px; background: #fafafa; border-bottom: 1px solid #e5e7eb; color: #374151; font-size: 13px; font-weight: 800; }
 .result-row { display: flex; justify-content: space-between; gap: 16px; padding: 12px 14px; border-bottom: 1px solid #f0f1f3; }
 .result-row:last-of-type { border-bottom: 0; }
 .result-row span { color: #6b7280; }
