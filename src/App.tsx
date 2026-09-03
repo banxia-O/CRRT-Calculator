@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { calculateFluidPrescription } from './calculators/fluid'
 import { steps } from './clinical/config'
 import { visibleFields } from './flow/engine'
 import type { FieldConfig, FormState } from './flow/types'
@@ -41,6 +42,8 @@ function Field({
             onChange={(event) => onOtherChange(event.target.value)}
           />
         )}
+
+        {field.helpText && <div className="help-text">{field.helpText}</div>}
       </div>
     )
   }
@@ -64,7 +67,17 @@ function Field({
         />
         {field.unit && <span className="unit">{field.unit}</span>}
       </div>
+      {field.helpText && <div className="help-text">{field.helpText}</div>}
     </label>
+  )
+}
+
+function ResultRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="result-row">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
   )
 }
 
@@ -76,10 +89,29 @@ export default function App() {
   const step = steps[stepIndex]
   const fields = visibleFields(step.fields, state)
 
+  const fluidResult = useMemo(
+    () =>
+      calculateFluidPrescription({
+        weightKg: typeof state.weight === 'number' ? state.weight : undefined,
+        targetDoseMlKgH: typeof state.targetDose === 'number' ? state.targetDose : undefined,
+        mode: typeof state.mode === 'string' ? state.mode : undefined,
+        fluidAllocation:
+          typeof state.fluidAllocation === 'string' ? state.fluidAllocation : undefined,
+        replacementSharePct:
+          typeof state.replacementShare === 'number' ? state.replacementShare : undefined,
+        dialysateSharePct:
+          typeof state.dialysateShare === 'number' ? state.dialysateShare : undefined,
+        netUfMlH: typeof state.netUf === 'number' ? state.netUf : undefined,
+        replacementPosition:
+          typeof state.replacementPosition === 'string' ? state.replacementPosition : undefined,
+      }),
+    [state],
+  )
+
   const summary = useMemo(() => {
     const allVisibleFields = steps.flatMap((item) => visibleFields(item.fields, state))
     const visibleIds = new Set(allVisibleFields.map((field) => field.id))
-    const labels = new Map(allVisibleFields.map((field) => [field.id, field.label]))
+    const fieldsById = new Map(allVisibleFields.map((field) => [field.id, field]))
     const optionLabels = new Map(
       allVisibleFields.map((field) => [
         field.id,
@@ -90,28 +122,35 @@ export default function App() {
     return Object.entries(state)
       .filter(([key, value]) => visibleIds.has(key) && value !== '' && value !== undefined)
       .map(([key, value]) => {
-        const displayValue =
+        const field = fieldsById.get(key)
+        const rawDisplayValue =
           value === '__other__'
             ? otherValues[key] || '其他（未填写）'
             : optionLabels.get(key)?.get(String(value)) ?? String(value)
+        const displayValue =
+          typeof value === 'number' && field?.unit
+            ? `${rawDisplayValue} ${field.unit}`
+            : rawDisplayValue
 
         return {
           key,
-          label: labels.get(key) ?? key,
+          label: field?.label ?? key,
           value: displayValue,
         }
       })
   }, [state, otherValues])
+
+  const hasFluidInputs = Boolean(state.weight || state.targetDose || state.mode)
 
   return (
     <main className="app-shell">
       <header className="page-header">
         <div>
           <div className="eyebrow">CRRT / CBP</div>
-          <h1>透析处方计算器 · Demo</h1>
-          <p>先验证流程和分支。当前医学选项只用于占位，后续再系统核对。</p>
+          <h1>透析处方计算器 · Phase 2</h1>
+          <p>已接入体重、治疗剂量、净超滤与置换液/透析液流量计算。</p>
         </div>
-        <span className="demo-badge">DEMO</span>
+        <span className="demo-badge">OFFLINE READY</span>
       </header>
 
       <div className="stepper" aria-label="步骤">
@@ -180,7 +219,7 @@ export default function App() {
           <div className="summary-title-row">
             <div>
               <div className="step-count">REAL-TIME</div>
-              <h2>当前处方摘要</h2>
+              <h2>计算结果</h2>
             </div>
             <button
               type="button"
@@ -195,21 +234,64 @@ export default function App() {
             </button>
           </div>
 
-          {summary.length === 0 ? (
-            <div className="empty-state">左侧开始选择后，这里会实时汇总。</div>
+          {!hasFluidInputs ? (
+            <div className="empty-state">录入体重、模式和目标治疗剂量后开始计算。</div>
           ) : (
-            <dl className="summary-list">
-              {summary.map((item) => (
-                <div key={item.key} className="summary-item">
-                  <dt>{item.label}</dt>
-                  <dd>{item.value}</dd>
+            <div className="calculation-panel">
+              {fluidResult.targetEffluentMlH !== undefined && (
+                <ResultRow
+                  label="目标总流出液量"
+                  value={`${fluidResult.targetEffluentMlH} mL/h`}
+                />
+              )}
+              {fluidResult.clearanceFluidMlH !== undefined && (
+                <ResultRow
+                  label="置换液 + 透析液"
+                  value={`${fluidResult.clearanceFluidMlH} mL/h`}
+                />
+              )}
+              {fluidResult.replacementFlowMlH !== undefined && (
+                <ResultRow
+                  label="置换液速度"
+                  value={`${fluidResult.replacementFlowMlH} mL/h`}
+                />
+              )}
+              {fluidResult.dialysateFlowMlH !== undefined && (
+                <ResultRow
+                  label="透析液速度"
+                  value={`${fluidResult.dialysateFlowMlH} mL/h`}
+                />
+              )}
+              <ResultRow label="净超滤速度" value={`${fluidResult.netUfMlH} mL/h`} />
+
+              {fluidResult.messages.map((message) => (
+                <div
+                  className={`result-message ${fluidResult.status === 'invalid' ? 'error' : ''}`}
+                  key={message}
+                >
+                  {message}
                 </div>
               ))}
-            </dl>
+            </div>
+          )}
+
+          {summary.length > 0 && (
+            <>
+              <div className="summary-divider" />
+              <div className="step-count">CURRENT INPUTS</div>
+              <dl className="summary-list">
+                {summary.map((item) => (
+                  <div key={item.key} className="summary-item">
+                    <dt>{item.label}</dt>
+                    <dd>{item.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </>
           )}
 
           <div className="summary-note">
-            Demo 暂不输出治疗建议。后续会把临床规则、公式和 UI 分开维护。
+            Phase 2 仅做液体量换算。目标治疗剂量由临床医生设定；CVVHDF 的置换液/透析液比例无唯一固定值，因此需要明确选择比例。
           </div>
         </aside>
       </div>
