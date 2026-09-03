@@ -77,21 +77,18 @@ export default function App() {
   const fields = visibleFields(step.fields, state)
 
   const summary = useMemo(() => {
-    const labels = new Map<string, string>()
-    const optionLabels = new Map<string, Map<string, string>>()
-
-    steps.forEach((item) =>
-      item.fields.forEach((field) => {
-        labels.set(field.id, field.label)
-        optionLabels.set(
-          field.id,
-          new Map(field.options?.map((option) => [option.value, option.label]) ?? []),
-        )
-      }),
+    const allVisibleFields = steps.flatMap((item) => visibleFields(item.fields, state))
+    const visibleIds = new Set(allVisibleFields.map((field) => field.id))
+    const labels = new Map(allVisibleFields.map((field) => [field.id, field.label]))
+    const optionLabels = new Map(
+      allVisibleFields.map((field) => [
+        field.id,
+        new Map(field.options?.map((option) => [option.value, option.label]) ?? []),
+      ]),
     )
 
     return Object.entries(state)
-      .filter(([, value]) => value !== '' && value !== undefined)
+      .filter(([key, value]) => visibleIds.has(key) && value !== '' && value !== undefined)
       .map(([key, value]) => {
         const displayValue =
           value === '__other__'
