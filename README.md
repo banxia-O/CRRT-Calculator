@@ -1,6 +1,6 @@
 # CRRT Calculator
 
-CRRT / CBP 处方计算器，当前完成到 Phase 5。
+CRRT / CBP 处方计算器，当前完成到 Phase 6。
 
 ## 当前已实现
 
@@ -21,11 +21,16 @@ CRRT / CBP 处方计算器，当前完成到 Phase 5。
 - 高钾血症时按 2026 版指南检查目标处方液钾浓度 0–2 mmol/L
 - Phase 5 临床校验层：缺项、数学冲突、单位 / 数值错误、模式相容性、当前版本不支持的组合提示
 - 校验结果可映射回左侧具体字段
+- Phase 6 最终结果页：集中展示液体量、抗凝和电解质 / 缓冲液结果
+- 一键生成并复制纯文本处方参数摘要
+- Warning / Info 自动进入摘要“需核对”部分
+- 存在 Error 或液体量主流程未完成时禁止复制正式摘要
+- `file://` 离线打开时提供复制兼容回退
 - 实时计算结果
 - PC / 手机响应式布局
 - 构建后输出单个离线 HTML 文件
 
-> 当前已覆盖液体量、常用抗凝、葡萄糖酸钙、NaHCO₃ 和 KCl 的主流程，并加入实时防呆校验。目标浓度仍由临床医生根据实时病情设定，计算器负责公式换算、范围提示和输入一致性检查。
+> 当前主流程已经覆盖“录入 → 计算 → 防呆校验 → 最终结果 → 复制摘要”。目标浓度仍由临床医生根据实时病情设定，计算器负责公式换算、范围提示、输入一致性检查和结果整理。
 
 ## 本地运行
 
@@ -76,9 +81,11 @@ dist/index.html
 - `src/calculators/anticoagulation.ts`：Phase 3 枸橼酸 / 普通肝素计算
 - `src/calculators/electrolytes.ts`：Phase 4 钙 / NaHCO₃ / KCl
 - `src/validation/prescription.ts`：Phase 5 临床校验规则
+- `src/output/prescription.ts`：Phase 6 最终处方摘要生成
 - `docs/PHASE2-FLUID-CALCULATION.md`：液体公式边界与医学依据
 - `docs/PHASE3-ANTICOAGULATION.md`：抗凝公式、边界与来源
 - `docs/PHASE4-ELECTROLYTES-BUFFER.md`：电解质与缓冲液公式、边界与来源
 - `docs/PHASE5-VALIDATION.md`：校验分级、规则边界和测试覆盖
+- `docs/PHASE6-RESULTS.md`：最终结果页、复制规则和离线兼容说明
 
 开发源码保持模块化，最终构建为单个 HTML；这样后续改医学内容时不需要把所有代码手工维护在一大坨文件里。
