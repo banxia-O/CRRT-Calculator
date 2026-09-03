@@ -141,26 +141,25 @@
 - `src/validation/prescription.test.ts`
 - `docs/PHASE5-VALIDATION.md`
 
-## Phase 6：结果页
+## Phase 6：结果页（已完成）
 
-输出结构：
+已实现：
 
-- 患者基础参数
-- 治疗模式
-- 总治疗剂量
-- 置换液速度
-- 透析液速度
-- 净超滤
-- 抗凝剂量 / 速度
-- 钙、NaHCO3、KCl 相关结果
-- 计算依据 / 来源版本
+- Stepper 新增“结果”步骤
+- 汇总患者当前输入、治疗模式和已启用的计算模块
+- 集中展示总治疗剂量、置换液、透析液、净超滤、抗凝、钙、NaHCO3、KCl 结果
+- 生成纯文本处方参数摘要
+- Warning / Info 自动进入“需核对”部分
+- 有 Error 时禁止复制正式摘要
+- 液体量主流程未完成时禁止复制
+- 支持返回修改、清空重算
+- 一键复制，兼容 `file://` 单文件离线运行场景
 
-支持：
+产物：
 
-- 一键复制文本
-- 清空 / 重新计算
-- 有 Error 时禁止生成“可复制正式摘要”
-- 后续可扩展打印模板
+- `src/output/prescription.ts`
+- `src/output/prescription.test.ts`
+- `docs/PHASE6-RESULTS.md`
 
 ## Phase 7：医学核对与来源管理
 
