@@ -46,6 +46,33 @@ describe('validatePrescription', () => {
     expect(warningIds).toContain('citrate.calcium_fluid_type.missing')
   })
 
+  it('does not require bicarbonate details when only a preparation is recorded', () => {
+    const result = validatePrescription({
+      weight: 70,
+      targetDose: 25,
+      mode: 'cvvhd',
+      bicarbonatePreparation: 'sodium_bicarbonate_1_4pct',
+    })
+
+    expect(result.issues.map((issue) => issue.id)).not.toContain(
+      'bicarbonate.carrier.missing',
+    )
+  })
+
+  it('does not require potassium details when only context and preparation are recorded', () => {
+    const result = validatePrescription({
+      weight: 70,
+      targetDose: 25,
+      mode: 'cvvhd',
+      potassiumContext: 'hyperkalemia',
+      potassiumChloridePreparation: 'potassium_chloride_10pct',
+    })
+
+    expect(result.issues.map((issue) => issue.id)).not.toContain(
+      'potassium.bag_volume.missing',
+    )
+  })
+
   it('flags a potassium target below the base fluid concentration', () => {
     const result = validatePrescription({
       weight: 70,
