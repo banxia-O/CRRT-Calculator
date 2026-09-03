@@ -181,13 +181,16 @@ function calculateBicarbonate(
   input: ElectrolyteCalculationInput,
 ): ComponentCalculationResult {
   const title = 'NaHCO₃（碳酸氢钠）'
-  const hasAnyInput =
-    input.bicarbonatePreparation !== undefined ||
+
+  // NaHCO3 是选填模块：仅选择一个制剂用于记录，不代表一定要做补碱计算。
+  // 当用户开始填写浓度 / 目标 / 流量中的任一计算参数后，才进入完整性校验。
+  const calculationStarted =
+    input.bicarbonateCustomMmolMl !== undefined ||
     input.bicarbonateBaseMmolL !== undefined ||
     input.bicarbonateTargetMmolL !== undefined ||
     input.bicarbonateCarrierFlowMlH !== undefined
 
-  if (!hasAnyInput) return idle(title)
+  if (!calculationStarted) return idle(title)
 
   if (!input.bicarbonatePreparation) {
     return {
@@ -291,14 +294,15 @@ function calculatePotassium(
   input: ElectrolyteCalculationInput,
 ): ComponentCalculationResult {
   const title = 'KCl（氯化钾）'
-  const hasAnyInput =
-    input.potassiumChloridePreparation !== undefined ||
+
+  // KCl 同样是选填模块。仅记录“高钾情景”或制剂规格时不强制补齐整套配液参数。
+  const calculationStarted =
+    input.potassiumCustomMmolMl !== undefined ||
     input.potassiumBaseMmolL !== undefined ||
     input.potassiumTargetMmolL !== undefined ||
-    input.potassiumBagVolumeL !== undefined ||
-    input.potassiumContext !== undefined
+    input.potassiumBagVolumeL !== undefined
 
-  if (!hasAnyInput) return idle(title)
+  if (!calculationStarted) return idle(title)
 
   if (!input.potassiumChloridePreparation) {
     return {
