@@ -17,6 +17,13 @@ export const fluidAllocationOptions: Option[] = [
   otherOption,
 ]
 
+export const replacementPositionOptions: Option[] = [
+  { value: 'pre', label: '前稀释' },
+  { value: 'post', label: '后稀释' },
+  { value: 'mixed', label: '前 + 后稀释' },
+  otherOption,
+]
+
 export const anticoagulationOptions: Option[] = [
   { value: 'none', label: '无抗凝' },
   { value: 'citrate', label: '枸橼酸' },
