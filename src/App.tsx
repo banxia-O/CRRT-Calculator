@@ -8,23 +8,62 @@ import { calculateFluidPrescription } from './calculators/fluid'
 import { steps } from './clinical/config'
 import { visibleFields } from './flow/engine'
 import type { FieldConfig, FormState } from './flow/types'
+import {
+  validatePrescription,
+  type ValidationIssue,
+  type ValidationSeverity,
+} from './validation/prescription'
+
+const severityRank: Record<ValidationSeverity, number> = {
+  error: 3,
+  warning: 2,
+  info: 1,
+}
+
+function strongestSeverity(issues: ValidationIssue[]) {
+  return issues.reduce<ValidationSeverity | undefined>((current, issue) => {
+    if (!current || severityRank[issue.severity] > severityRank[current]) {
+      return issue.severity
+    }
+    return current
+  }, undefined)
+}
+
+function FieldIssues({ issues }: { issues: ValidationIssue[] }) {
+  if (issues.length === 0) return null
+
+  return (
+    <div className="field-validation-list">
+      {issues.map((issue) => (
+        <div className={`field-validation ${issue.severity}`} key={issue.id}>
+          {issue.message}
+        </div>
+      ))}
+    </div>
+  )
+}
 
 function Field({
   field,
   value,
   otherValue,
+  issues,
   onChange,
   onOtherChange,
 }: {
   field: FieldConfig
   value: string | number | undefined
   otherValue?: string
+  issues: ValidationIssue[]
   onChange: (value: string | number | undefined) => void
   onOtherChange: (value: string) => void
 }) {
+  const severity = strongestSeverity(issues)
+  const blockClass = `field-block ${severity ? `has-${severity}` : ''}`
+
   if (field.type === 'single') {
     return (
-      <div className="field-block">
+      <div className={blockClass}>
         <div className="field-label">{field.label}</div>
         <div className="option-grid">
           {field.options?.map((option) => (
@@ -49,12 +88,13 @@ function Field({
         )}
 
         {field.helpText && <div className="help-text">{field.helpText}</div>}
+        <FieldIssues issues={issues} />
       </div>
     )
   }
 
   return (
-    <label className="field-block">
+    <label className={blockClass}>
       <span className="field-label">{field.label}</span>
       <div className="input-with-unit">
         <input
@@ -73,6 +113,7 @@ function Field({
         {field.unit && <span className="unit">{field.unit}</span>}
       </div>
       {field.helpText && <div className="help-text">{field.helpText}</div>}
+      <FieldIssues issues={issues} />
     </label>
   )
 }
@@ -103,6 +144,47 @@ function ComponentResultBlock({ result }: { result: ComponentCalculationResult }
           {message}
         </div>
       ))}
+    </div>
+  )
+}
+
+function ValidationPanel({
+  issues,
+  errorCount,
+  warningCount,
+  hasAnyInput,
+}: {
+  issues: ValidationIssue[]
+  errorCount: number
+  warningCount: number
+  hasAnyInput: boolean
+}) {
+  return (
+    <div className="validation-panel">
+      <div className="validation-heading">
+        <strong>临床校验</strong>
+        <div className="validation-counts">
+          {errorCount > 0 && <span className="validation-badge error">错误 {errorCount}</span>}
+          {warningCount > 0 && (
+            <span className="validation-badge warning">提醒 {warningCount}</span>
+          )}
+        </div>
+      </div>
+
+      {!hasAnyInput ? (
+        <div className="validation-ok muted">开始录入后自动检查缺项、冲突和明显异常输入。</div>
+      ) : issues.length === 0 ? (
+        <div className="validation-ok">当前未发现已接入规则中的冲突。</div>
+      ) : (
+        <div className="validation-issues">
+          {issues.map((issue) => (
+            <div className={`validation-issue ${issue.severity}`} key={issue.id}>
+              <div className="validation-issue-title">{issue.title}</div>
+              <div className="validation-issue-message">{issue.message}</div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -221,6 +303,11 @@ export default function App() {
     [state, fluidResult.targetEffluentMlH],
   )
 
+  const validationResult = useMemo(
+    () => validatePrescription(state, otherValues),
+    [state, otherValues],
+  )
+
   const summary = useMemo(() => {
     const allVisibleFields = steps.flatMap((item) => visibleFields(item.fields, state))
     const visibleIds = new Set(allVisibleFields.map((field) => field.id))
@@ -253,6 +340,7 @@ export default function App() {
       })
   }, [state, otherValues])
 
+  const hasAnyInput = Object.values(state).some((value) => value !== undefined && value !== '')
   const hasFluidInputs = Boolean(state.weight || state.targetDose || state.mode)
   const hasAnticoagulationInput = Boolean(state.anticoagulation)
   const hasElectrolyteInputs = Boolean(
@@ -270,8 +358,8 @@ export default function App() {
       <header className="page-header">
         <div>
           <div className="eyebrow">CRRT / CBP</div>
-          <h1>透析处方计算器 · Phase 4</h1>
-          <p>已接入液体量、抗凝、葡萄糖酸钙、NaHCO₃ 与 KCl 换算。</p>
+          <h1>透析处方计算器 · Phase 5</h1>
+          <p>已接入液体量、抗凝、电解质 / 缓冲液换算与实时防呆校验。</p>
         </div>
         <span className="demo-badge">OFFLINE READY</span>
       </header>
@@ -308,6 +396,7 @@ export default function App() {
                 field={field}
                 value={state[field.id]}
                 otherValue={otherValues[field.id]}
+                issues={validationResult.byField[field.id] ?? []}
                 onChange={(value) =>
                   setState((current) => ({ ...current, [field.id]: value }))
                 }
@@ -356,6 +445,13 @@ export default function App() {
               清空
             </button>
           </div>
+
+          <ValidationPanel
+            issues={validationResult.issues}
+            errorCount={validationResult.errors.length}
+            warningCount={validationResult.warnings.length}
+            hasAnyInput={hasAnyInput}
+          />
 
           <div className="result-section-title">液体量</div>
           {!hasFluidInputs ? (
@@ -446,7 +542,7 @@ export default function App() {
           )}
 
           <div className="summary-note">
-            Phase 4 只自动计算指南明确支持的初始公式或纯配液换算。NaHCO₃ 与 KCl 的目标处方液浓度由医生根据实时酸碱、电解质状态设定；RCA 补钙必须继续按体内 iCa 动态调整。
+            Phase 5 校验层只检查已接入公式所需的缺项、数学冲突、已明确的指南范围和当前版本不支持的组合；不会根据单次化验或病情自动替医生选择治疗目标。
           </div>
         </aside>
       </div>
