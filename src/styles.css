@@ -99,6 +99,20 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 .summary-item dd { margin: 0; text-align: right; font-weight: 700; color: #111827; word-break: break-word; }
 .summary-note { margin-top: 22px; border-radius: 12px; background: #f7f7f8; padding: 14px; color: #6b7280; font-size: 13px; line-height: 1.6; }
 
+.final-workspace { max-width: 980px; margin: 0 auto; }
+.final-card { padding: 30px; }
+.final-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.final-status { flex: 0 0 auto; border-radius: 999px; padding: 7px 11px; font-size: 12px; font-weight: 800; }
+.final-status.ready { background: #dcfce7; color: #166534; }
+.final-status.warning { background: #fef3c7; color: #92400e; }
+.final-status.error { background: #fee2e2; color: #991b1b; }
+.final-status.muted { background: #f1f5f9; color: #64748b; }
+.final-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
+.final-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.copy-preview { margin: 10px 0 0; max-height: 420px; overflow: auto; white-space: pre-wrap; word-break: break-word; border: 1px solid #e5e7eb; border-radius: 14px; background: #fbfbfc; padding: 18px; color: #374151; font: 13px/1.7 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+.copy-blocked-note { margin-top: 10px; border-radius: 10px; background: #fff7f7; color: #9f1239; padding: 10px 12px; font-size: 12px; line-height: 1.55; }
+.final-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 24px; padding-top: 20px; border-top: 1px solid #eceef1; }
+
 @media (max-width: 820px) {
   .app-shell { padding: 24px 14px 40px; }
   .page-header { flex-direction: column; }
@@ -106,4 +120,9 @@ button:disabled { opacity: .4; cursor: not-allowed; }
   .summary-card { position: static; }
   .form-card { padding: 22px 18px; min-height: 0; }
   .option-grid { grid-template-columns: 1fr; }
+  .final-card { padding: 22px 18px; }
+  .final-heading { flex-direction: column; }
+  .final-grid, .final-grid.three { grid-template-columns: 1fr; }
+  .final-actions { justify-content: stretch; }
+  .final-actions button { flex: 1 1 100%; }
 }
