@@ -21,6 +21,12 @@ export type FluidCalculationResult = {
 
 const roundFlow = (value: number) => Math.round(value)
 
+// 2026 中国 CRRT 处方液指南将 >50 mL/kg/h 定义为高容量血液滤过（HVHF）。
+// 100 mL/kg/h 不是临床“绝对上限”，而是本工具的单位误填保护阈值：
+// 超过该值时更常见的风险是把 mL/h 总流量误填进 mL/kg/h 字段。
+const HIGH_VOLUME_DOSE_ML_KG_H = 50
+const UNIT_GUARD_DOSE_ML_KG_H = 100
+
 export function calculateFluidPrescription(
   input: FluidCalculationInput,
 ): FluidCalculationResult {
@@ -33,6 +39,22 @@ export function calculateFluidPrescription(
 
   if (!input.targetDoseMlKgH || input.targetDoseMlKgH <= 0) {
     return { status: 'incomplete', netUfMlH, messages: ['请输入目标治疗剂量。'] }
+  }
+
+  if (input.targetDoseMlKgH > UNIT_GUARD_DOSE_ML_KG_H) {
+    return {
+      status: 'invalid',
+      netUfMlH,
+      messages: [
+        `目标治疗剂量填写为 ${input.targetDoseMlKgH} mL/kg/h，远高于本工具支持的常规处方范围。请确认是否把“总流量 mL/h”误填进了“mL/kg/h”字段；例如 70 kg × 25 mL/kg/h = 1750 mL/h。`,
+      ],
+    }
+  }
+
+  if (input.targetDoseMlKgH > HIGH_VOLUME_DOSE_ML_KG_H) {
+    messages.push(
+      '当前目标治疗剂量 >50 mL/kg/h，已进入2026版指南所述高容量范围，请核对处方目的并避免单位误填。',
+    )
   }
 
   if (!input.mode) {
