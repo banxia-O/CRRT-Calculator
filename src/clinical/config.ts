@@ -7,6 +7,7 @@ import {
   fluidAllocationOptions,
   modeOptions,
   potassiumChloridePreparationOptions,
+  replacementPositionOptions,
 } from './options'
 
 export const steps: StepConfig[] = [
@@ -28,7 +29,7 @@ export const steps: StepConfig[] = [
   {
     id: 'therapy',
     title: '治疗设置',
-    description: '这一页只收拢治疗模式、目标剂量、血流量和液体分配方式；具体公式在 Phase 2 接入。',
+    description: 'Phase 2 已接入体重、目标治疗剂量与置换液/透析液流量计算。',
     fields: [
       {
         id: 'mode',
@@ -44,7 +45,7 @@ export const steps: StepConfig[] = [
         type: 'number',
         unit: 'mL/kg/h',
         placeholder: '例如 25',
-        helpText: 'Phase 1 仅记录输入，暂不自动推荐目标剂量。',
+        helpText: '由临床医生设定目标剂量；计算器只负责换算，不自动替代临床判断。',
         purpose: 'calculation',
       },
       {
@@ -53,6 +54,16 @@ export const steps: StepConfig[] = [
         type: 'number',
         unit: 'mL/min',
         placeholder: '例如 130',
+        helpText: 'Phase 2 暂不参与液体总量公式，Phase 3 枸橼酸抗凝会使用。',
+        purpose: 'calculation',
+      },
+      {
+        id: 'netUf',
+        label: '净超滤速度',
+        type: 'number',
+        unit: 'mL/h',
+        placeholder: '例如 100；不脱水可填 0',
+        helpText: '净超滤单独显示，并从目标总流出液量中单列。',
         purpose: 'calculation',
       },
       {
@@ -61,6 +72,7 @@ export const steps: StepConfig[] = [
         type: 'single',
         allowOther: true,
         options: fluidAllocationOptions,
+        visibleIf: { field: 'mode', operator: 'equals', value: 'cvvhdf' },
         purpose: 'calculation',
       },
       {
@@ -69,7 +81,13 @@ export const steps: StepConfig[] = [
         type: 'number',
         unit: '%',
         placeholder: '例如 60',
-        visibleIf: { field: 'fluidAllocation', operator: 'equals', value: 'custom_ratio' },
+        visibleIf: {
+          operator: 'all',
+          rules: [
+            { field: 'mode', operator: 'equals', value: 'cvvhdf' },
+            { field: 'fluidAllocation', operator: 'equals', value: 'custom_ratio' },
+          ],
+        },
         purpose: 'calculation',
       },
       {
@@ -78,8 +96,24 @@ export const steps: StepConfig[] = [
         type: 'number',
         unit: '%',
         placeholder: '例如 40',
-        visibleIf: { field: 'fluidAllocation', operator: 'equals', value: 'custom_ratio' },
+        visibleIf: {
+          operator: 'all',
+          rules: [
+            { field: 'mode', operator: 'equals', value: 'cvvhdf' },
+            { field: 'fluidAllocation', operator: 'equals', value: 'custom_ratio' },
+          ],
+        },
         purpose: 'calculation',
+      },
+      {
+        id: 'replacementPosition',
+        label: '置换液稀释方式',
+        type: 'single',
+        allowOther: true,
+        options: replacementPositionOptions,
+        visibleIf: { field: 'mode', operator: 'in', values: ['cvvh', 'cvvhdf'] },
+        helpText: 'Phase 2 记录前/后稀释方式；前稀释的有效清除校正后续再补。',
+        purpose: 'context',
       },
     ],
   },
