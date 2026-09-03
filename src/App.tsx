@@ -1,5 +1,9 @@
 import { useMemo, useState } from 'react'
 import { calculateAnticoagulation } from './calculators/anticoagulation'
+import {
+  calculateElectrolytes,
+  type ComponentCalculationResult,
+} from './calculators/electrolytes'
 import { calculateFluidPrescription } from './calculators/fluid'
 import { steps } from './clinical/config'
 import { visibleFields } from './flow/engine'
@@ -82,6 +86,27 @@ function ResultRow({ label, value }: { label: string; value: string }) {
   )
 }
 
+function ComponentResultBlock({ result }: { result: ComponentCalculationResult }) {
+  if (result.status === 'idle') return null
+
+  return (
+    <div className="calculation-panel">
+      <div className="calculation-caption">{result.title}</div>
+      {result.rows.map((row) => (
+        <ResultRow key={`${row.label}-${row.value}`} label={row.label} value={row.value} />
+      ))}
+      {result.messages.map((message) => (
+        <div
+          className={`result-message ${result.status === 'invalid' ? 'error' : ''}`}
+          key={message}
+        >
+          {message}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function App() {
   const [stepIndex, setStepIndex] = useState(0)
   const [state, setState] = useState<FormState>({})
@@ -135,6 +160,67 @@ export default function App() {
     [state],
   )
 
+  const electrolyteResult = useMemo(
+    () =>
+      calculateElectrolytes({
+        anticoagulationMethod:
+          typeof state.anticoagulation === 'string' ? state.anticoagulation : undefined,
+        mode: typeof state.mode === 'string' ? state.mode : undefined,
+        replacementPosition:
+          typeof state.replacementPosition === 'string' ? state.replacementPosition : undefined,
+        targetEffluentMlH: fluidResult.targetEffluentMlH,
+        calciumFluidType:
+          typeof state.calciumFluidType === 'string' ? state.calciumFluidType : undefined,
+        calciumGluconatePreparation:
+          typeof state.calciumGluconatePreparation === 'string'
+            ? state.calciumGluconatePreparation
+            : undefined,
+        bicarbonatePreparation:
+          typeof state.bicarbonatePreparation === 'string'
+            ? state.bicarbonatePreparation
+            : undefined,
+        bicarbonateCustomMmolMl:
+          typeof state.bicarbonateCustomMmolMl === 'number'
+            ? state.bicarbonateCustomMmolMl
+            : undefined,
+        bicarbonateBaseMmolL:
+          typeof state.bicarbonateBaseMmolL === 'number'
+            ? state.bicarbonateBaseMmolL
+            : undefined,
+        bicarbonateTargetMmolL:
+          typeof state.bicarbonateTargetMmolL === 'number'
+            ? state.bicarbonateTargetMmolL
+            : undefined,
+        bicarbonateCarrierFlowMlH:
+          typeof state.bicarbonateCarrierFlowMlH === 'number'
+            ? state.bicarbonateCarrierFlowMlH
+            : undefined,
+        potassiumContext:
+          typeof state.potassiumContext === 'string' ? state.potassiumContext : undefined,
+        potassiumChloridePreparation:
+          typeof state.potassiumChloridePreparation === 'string'
+            ? state.potassiumChloridePreparation
+            : undefined,
+        potassiumCustomMmolMl:
+          typeof state.potassiumCustomMmolMl === 'number'
+            ? state.potassiumCustomMmolMl
+            : undefined,
+        potassiumBaseMmolL:
+          typeof state.potassiumBaseMmolL === 'number'
+            ? state.potassiumBaseMmolL
+            : undefined,
+        potassiumTargetMmolL:
+          typeof state.potassiumTargetMmolL === 'number'
+            ? state.potassiumTargetMmolL
+            : undefined,
+        potassiumBagVolumeL:
+          typeof state.potassiumBagVolumeL === 'number'
+            ? state.potassiumBagVolumeL
+            : undefined,
+      }),
+    [state, fluidResult.targetEffluentMlH],
+  )
+
   const summary = useMemo(() => {
     const allVisibleFields = steps.flatMap((item) => visibleFields(item.fields, state))
     const visibleIds = new Set(allVisibleFields.map((field) => field.id))
@@ -169,14 +255,23 @@ export default function App() {
 
   const hasFluidInputs = Boolean(state.weight || state.targetDose || state.mode)
   const hasAnticoagulationInput = Boolean(state.anticoagulation)
+  const hasElectrolyteInputs = Boolean(
+    state.anticoagulation === 'citrate' ||
+      state.bicarbonatePreparation ||
+      state.bicarbonateBaseMmolL !== undefined ||
+      state.bicarbonateTargetMmolL !== undefined ||
+      state.potassiumChloridePreparation ||
+      state.potassiumBaseMmolL !== undefined ||
+      state.potassiumTargetMmolL !== undefined,
+  )
 
   return (
     <main className="app-shell">
       <header className="page-header">
         <div>
           <div className="eyebrow">CRRT / CBP</div>
-          <h1>透析处方计算器 · Phase 3</h1>
-          <p>已接入液体量、局部枸橼酸抗凝与普通肝素初始剂量换算。</p>
+          <h1>透析处方计算器 · Phase 4</h1>
+          <p>已接入液体量、抗凝、葡萄糖酸钙、NaHCO₃ 与 KCl 换算。</p>
         </div>
         <span className="demo-badge">OFFLINE READY</span>
       </header>
@@ -324,6 +419,17 @@ export default function App() {
             </div>
           )}
 
+          <div className="result-section-title">电解质 / 缓冲液</div>
+          {!hasElectrolyteInputs ? (
+            <div className="empty-state compact">填写补钙、补碱或补钾参数后显示对应换算。</div>
+          ) : (
+            <>
+              <ComponentResultBlock result={electrolyteResult.calcium} />
+              <ComponentResultBlock result={electrolyteResult.bicarbonate} />
+              <ComponentResultBlock result={electrolyteResult.potassium} />
+            </>
+          )}
+
           {summary.length > 0 && (
             <>
               <div className="summary-divider" />
@@ -340,7 +446,7 @@ export default function App() {
           )}
 
           <div className="summary-note">
-            Phase 3 输出的是初始换算值或指南范围。枸橼酸应根据滤器后离子钙动态调整；普通肝素应根据 APTT / 抗 Xa 活性和出血风险调整。钙、NaHCO₃、KCl 在 Phase 4 接入。
+            Phase 4 只自动计算指南明确支持的初始公式或纯配液换算。NaHCO₃ 与 KCl 的目标处方液浓度由医生根据实时酸碱、电解质状态设定；RCA 补钙必须继续按体内 iCa 动态调整。
           </div>
         </aside>
       </div>
