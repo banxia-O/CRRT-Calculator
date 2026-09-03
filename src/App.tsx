@@ -433,10 +433,10 @@ export default function App() {
       <header className="page-header">
         <div>
           <div className="eyebrow">CRRT / CBP</div>
-          <h1>透析处方计算器 · Phase 6</h1>
-          <p>液体量、抗凝、电解质 / 缓冲液、实时校验与最终处方摘要已串成完整主流程。</p>
+          <h1>透析处方计算器</h1>
+          <p>液体量、抗凝、电解质 / 缓冲液、实时校验与处方摘要均可离线完成。</p>
         </div>
-        <span className="demo-badge">OFFLINE READY</span>
+        <span className="demo-badge">OFFLINE · v1.0 RC1</span>
       </header>
 
       <div className="stepper" aria-label="步骤">
@@ -603,7 +603,7 @@ export default function App() {
           <section className="card form-card">
             <div className="card-heading">
               <div>
-                <div className="step-count">STEP {stepIndex + 1} / {steps.length}</div>
+                <div className="step-count">STEP {stepIndex + 1} / {navigationSteps.length}</div>
                 <h2>{step?.title}</h2>
               </div>
             </div>
@@ -750,7 +750,7 @@ export default function App() {
             )}
 
             <div className="summary-note">
-              Phase 6 继续把医学目标留给临床医生；页面负责换算、校验和整理成可复制的处方参数摘要。
+              医学目标由临床医生设定；页面负责参数换算、校验和整理成可复制的处方摘要。
             </div>
           </aside>
         </div>
