@@ -29,7 +29,7 @@ export const steps: StepConfig[] = [
   {
     id: 'therapy',
     title: '治疗设置',
-    description: 'Phase 2 已接入体重、目标治疗剂量与置换液/透析液流量计算。',
+    description: '已接入体重、目标治疗剂量与置换液/透析液流量计算。',
     fields: [
       {
         id: 'mode',
@@ -54,7 +54,7 @@ export const steps: StepConfig[] = [
         type: 'number',
         unit: 'mL/min',
         placeholder: '例如 130',
-        helpText: 'Phase 2 暂不参与液体总量公式，Phase 3 枸橼酸抗凝会使用。',
+        helpText: '枸橼酸初始泵速换算会使用该值。',
         purpose: 'calculation',
       },
       {
@@ -112,7 +112,7 @@ export const steps: StepConfig[] = [
         allowOther: true,
         options: replacementPositionOptions,
         visibleIf: { field: 'mode', operator: 'in', values: ['cvvh', 'cvvhdf'] },
-        helpText: 'Phase 2 记录前/后稀释方式；前稀释的有效清除校正后续再补。',
+        helpText: '记录前/后稀释方式；前稀释的有效清除校正后续再补。',
         purpose: 'context',
       },
     ],
@@ -120,7 +120,7 @@ export const steps: StepConfig[] = [
   {
     id: 'anticoagulation',
     title: '抗凝',
-    description: '选择抗凝路径后，只展开该路径后续计算需要的制剂输入。',
+    description: 'Phase 3：根据已选抗凝方式计算常用初始范围；最终剂量仍需结合监测动态调整。',
     fields: [
       {
         id: 'anticoagulation',
@@ -137,15 +137,33 @@ export const steps: StepConfig[] = [
         allowOther: true,
         options: citratePreparationOptions,
         visibleIf: { field: 'anticoagulation', operator: 'equals', value: 'citrate' },
+        helpText: '2026版指南允许4%枸橼酸盐抗凝剂或0.5%枸橼酸盐置换液；Phase 3先实现4%枸橼酸钠泵速换算。',
         purpose: 'calculation',
       },
       {
-        id: 'citrateCustomConcentration',
-        label: '其他枸橼酸浓度',
+        id: 'citrateCustomMmolL',
+        label: '其他枸橼酸制剂浓度',
         type: 'number',
-        unit: '%',
-        placeholder: '请输入实际规格',
+        unit: 'mmol/L',
+        placeholder: '请输入枸橼酸根实际浓度',
         visibleIf: { field: 'citratePreparation', operator: 'equals', value: '__other__' },
+        helpText: '为避免百分浓度与具体盐型换算混淆，自定义制剂直接录入枸橼酸根浓度。',
+        purpose: 'calculation',
+      },
+      {
+        id: 'citrateTarget',
+        label: '目标体外血液枸橼酸浓度（可选）',
+        type: 'number',
+        unit: 'mmol/L',
+        placeholder: '例如 3；留空则显示 3–4 mmol/L 对应泵速范围',
+        visibleIf: {
+          operator: 'all',
+          rules: [
+            { field: 'anticoagulation', operator: 'equals', value: 'citrate' },
+            { field: 'citratePreparation', operator: 'in', values: ['trisodium_citrate_4pct', '__other__'] },
+          ],
+        },
+        helpText: '该值用于计算初始泵速；治疗中应按滤器后离子钙动态调整。',
         purpose: 'calculation',
       },
       {
@@ -153,8 +171,9 @@ export const steps: StepConfig[] = [
         label: '肝素配置浓度',
         type: 'number',
         unit: 'IU/mL',
-        placeholder: '输入实际泵内浓度',
+        placeholder: '例如 500；不填仍可计算 IU 剂量范围',
         visibleIf: { field: 'anticoagulation', operator: 'equals', value: 'heparin' },
+        helpText: '填写泵内实际浓度后，可把维持剂量进一步换算成 mL/h。',
         purpose: 'calculation',
       },
     ],
@@ -162,7 +181,7 @@ export const steps: StepConfig[] = [
   {
     id: 'preparations',
     title: '制剂规格',
-    description: '先把后续公式需要的制剂规格结构化。常用规格作为选项，院内其他规格可自由输入。',
+    description: '后续 Phase 4 接入钙、NaHCO₃、KCl 的计算。',
     fields: [
       {
         id: 'calciumGluconatePreparation',
