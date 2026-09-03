@@ -19,6 +19,21 @@ export type PrescriptionSummaryInput = {
   validationIssues: ValidationIssue[]
 }
 
+export const calculationSourceRows: SummaryInputRow[] = [
+  {
+    label: 'CRRT 处方液',
+    value: '《中国连续肾脏替代治疗处方液体应用临床实践指南（2026版）》',
+  },
+  {
+    label: 'RCA 管理 / 补钙',
+    value: 'Chinese emergency medical doctor consensus（2023）',
+  },
+  {
+    label: '普通肝素',
+    value: '《抗凝技术在危重症肾脏替代治疗应用的中国专家共识（2023年版）》',
+  },
+]
+
 function addSection(lines: string[], title: string, rows: SummaryInputRow[]) {
   if (rows.length === 0) return
   if (lines.length > 0) lines.push('')
@@ -87,6 +102,8 @@ export function buildPrescriptionSummary(input: PrescriptionSummaryInput) {
       warnings.map((issue) => ({ label: issue.title, value: issue.message })),
     )
   }
+
+  addSection(lines, '公式库主要依据版本', calculationSourceRows)
 
   lines.push('')
   lines.push('说明：本工具用于处方参数换算与已接入规则校验；治疗中仍需结合实时监测和临床判断调整。')
