@@ -17,6 +17,23 @@ describe('calculateElectrolytes', () => {
     })
   })
 
+  it('keeps bicarbonate optional when only a preparation is selected', () => {
+    const result = calculateElectrolytes({
+      bicarbonatePreparation: 'sodium_bicarbonate_1_4pct',
+    })
+
+    expect(result.bicarbonate.status).toBe('idle')
+  })
+
+  it('keeps potassium optional when only context and preparation are selected', () => {
+    const result = calculateElectrolytes({
+      potassiumContext: 'hyperkalemia',
+      potassiumChloridePreparation: 'potassium_chloride_10pct',
+    })
+
+    expect(result.potassium.status).toBe('idle')
+  })
+
   it('calculates bicarbonate pump rate from target fluid concentration', () => {
     const result = calculateElectrolytes({
       bicarbonatePreparation: 'sodium_bicarbonate_5pct',
