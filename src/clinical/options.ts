@@ -35,9 +35,13 @@ export const citratePreparationOptions: Option[] = [
   {
     value: 'trisodium_citrate_4pct',
     label: '4% 枸橼酸钠',
-    meta: { concentrationPercent: 4 },
+    meta: { concentrationPercent: 4, citrateMmolL: 136 },
   },
-  { value: 'acid_citrate_dextrose', label: '枸橼酸复方制剂' },
+  {
+    value: 'citrate_replacement_0_5pct',
+    label: '0.5% 枸橼酸盐置换液',
+    meta: { concentrationPercent: 0.5 },
+  },
   otherOption,
 ]
 
