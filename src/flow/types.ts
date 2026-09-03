@@ -12,6 +12,8 @@ export type Option = {
 export type VisibilityRule =
   | { field: string; operator: 'equals'; value: string }
   | { field: string; operator: 'in'; values: string[] }
+  | { operator: 'all'; rules: VisibilityRule[] }
+  | { operator: 'any'; rules: VisibilityRule[] }
 
 export type FieldConfig = {
   id: string
