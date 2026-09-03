@@ -49,7 +49,6 @@ export function validatePrescription(
 
   const issues: ValidationIssue[] = []
   const add = (issue: ValidationIssue) => issues.push(issue)
-
   const visible = steps.flatMap((step) => visibleFields(step.fields, state))
   const visibleIds = new Set(visible.map((field) => field.id))
 
@@ -72,79 +71,34 @@ export function validatePrescription(
   const mode = asString(state.mode)
 
   if (weight === undefined) {
-    add({
-      id: 'core.weight.missing',
-      severity: 'warning',
-      title: '缺少体重',
-      message: '体重是液体量和普通肝素剂量计算的基础参数。',
-      fieldIds: ['weight'],
-    })
+    add({ id: 'core.weight.missing', severity: 'warning', title: '缺少体重', message: '体重是液体量和普通肝素剂量计算的基础参数。', fieldIds: ['weight'] })
   } else if (weight <= 0) {
-    add({
-      id: 'core.weight.invalid',
-      severity: 'error',
-      title: '体重输入无效',
-      message: '体重必须大于 0 kg。',
-      fieldIds: ['weight'],
-    })
+    add({ id: 'core.weight.invalid', severity: 'error', title: '体重输入无效', message: '体重必须大于 0 kg。', fieldIds: ['weight'] })
   }
 
   if (!mode) {
-    add({
-      id: 'core.mode.missing',
-      severity: 'warning',
-      title: '缺少治疗模式',
-      message: '请选择 CRRT / CBP 模式后再拆分置换液和透析液。',
-      fieldIds: ['mode'],
-    })
+    add({ id: 'core.mode.missing', severity: 'warning', title: '缺少治疗模式', message: '请选择 CRRT / CBP 模式后再拆分置换液和透析液。', fieldIds: ['mode'] })
   }
 
   if (targetDose === undefined) {
-    add({
-      id: 'core.targetDose.missing',
-      severity: 'warning',
-      title: '缺少目标治疗剂量',
-      message: '请填写由临床医生设定的目标治疗剂量。',
-      fieldIds: ['targetDose'],
-    })
+    add({ id: 'core.targetDose.missing', severity: 'warning', title: '缺少目标治疗剂量', message: '请填写由临床医生设定的目标治疗剂量。', fieldIds: ['targetDose'] })
   } else if (targetDose <= 0) {
-    add({
-      id: 'core.targetDose.invalid',
-      severity: 'error',
-      title: '目标治疗剂量无效',
-      message: '目标治疗剂量必须大于 0 mL/kg/h。',
-      fieldIds: ['targetDose'],
-    })
+    add({ id: 'core.targetDose.invalid', severity: 'error', title: '目标治疗剂量无效', message: '目标治疗剂量必须大于 0 mL/kg/h。', fieldIds: ['targetDose'] })
+  } else if (targetDose > 100) {
+    add({ id: 'core.targetDose.unit_suspected', severity: 'error', title: '目标治疗剂量疑似单位填错', message: '当前值超过 100 mL/kg/h，请检查是否把 mL/h 的总流量误填到了 mL/kg/h。', fieldIds: ['targetDose'] })
+  } else if (targetDose > 50) {
+    add({ id: 'core.targetDose.high', severity: 'warning', title: '目标治疗剂量较高', message: '当前值已进入高容量范围，请核对处方目标与单位。', fieldIds: ['targetDose'] })
   }
 
   if (bloodFlow !== undefined && bloodFlow <= 0) {
-    add({
-      id: 'core.bloodFlow.invalid',
-      severity: 'error',
-      title: '血流量无效',
-      message: '已填写血流量时，该值必须大于 0 mL/min。',
-      fieldIds: ['bloodFlow'],
-    })
+    add({ id: 'core.bloodFlow.invalid', severity: 'error', title: '血流量无效', message: '已填写血流量时，该值必须大于 0 mL/min。', fieldIds: ['bloodFlow'] })
   }
 
   if (netUf !== undefined && netUf < 0) {
-    add({
-      id: 'core.netUf.invalid',
-      severity: 'error',
-      title: '净超滤速度无效',
-      message: '净超滤速度不能为负数。',
-      fieldIds: ['netUf'],
-    })
+    add({ id: 'core.netUf.invalid', severity: 'error', title: '净超滤速度无效', message: '净超滤速度不能为负数。', fieldIds: ['netUf'] })
   }
 
-  if (
-    weight !== undefined &&
-    weight > 0 &&
-    targetDose !== undefined &&
-    targetDose > 0 &&
-    netUf !== undefined &&
-    netUf >= 0
-  ) {
+  if (weight && targetDose && targetDose <= 100 && netUf !== undefined && netUf >= 0) {
     const targetEffluent = weight * targetDose
     if (netUf > targetEffluent) {
       add({
@@ -160,210 +114,87 @@ export function validatePrescription(
   if (mode === 'cvvhdf') {
     const allocation = asString(state.fluidAllocation)
     if (!allocation) {
-      add({
-        id: 'fluid.cvvhdf.allocation_missing',
-        severity: 'warning',
-        title: 'CVVHDF 尚未设置液体分配',
-        message: 'CVVHDF 没有唯一固定的置换液 / 透析液比例，请选择 1:1 或自定义比例。',
-        fieldIds: ['fluidAllocation'],
-      })
+      add({ id: 'fluid.cvvhdf.allocation_missing', severity: 'warning', title: 'CVVHDF 尚未设置液体分配', message: '请选择 1:1 或自定义置换液 / 透析液比例。', fieldIds: ['fluidAllocation'] })
     } else if (allocation === 'by_mode' || allocation === '__other__') {
-      add({
-        id: 'fluid.cvvhdf.allocation_unsupported',
-        severity: 'warning',
-        title: '当前分配方式不能自动计算',
-        message: '当前版本只有 1:1 和自定义比例会输出明确的置换液 / 透析液速度。',
-        fieldIds: ['fluidAllocation'],
-      })
+      add({ id: 'fluid.cvvhdf.allocation_unsupported', severity: 'warning', title: '当前分配方式不能自动计算', message: '当前版本只有 1:1 和自定义比例会输出明确流速。', fieldIds: ['fluidAllocation'] })
     } else if (allocation === 'custom_ratio') {
       const replacementShare = asNumber(state.replacementShare)
       const dialysateShare = asNumber(state.dialysateShare)
-
       if (replacementShare === undefined || dialysateShare === undefined) {
-        add({
-          id: 'fluid.cvvhdf.ratio_missing',
-          severity: 'warning',
-          title: '自定义比例未填写完整',
-          message: '请同时填写置换液占比和透析液占比。',
-          fieldIds: ['replacementShare', 'dialysateShare'],
-        })
+        add({ id: 'fluid.cvvhdf.ratio_missing', severity: 'warning', title: '自定义比例未填写完整', message: '请同时填写置换液占比和透析液占比。', fieldIds: ['replacementShare', 'dialysateShare'] })
       } else {
-        if (
-          replacementShare < 0 ||
-          replacementShare > 100 ||
-          dialysateShare < 0 ||
-          dialysateShare > 100
-        ) {
-          add({
-            id: 'fluid.cvvhdf.ratio_out_of_range',
-            severity: 'error',
-            title: '液体占比超出范围',
-            message: '置换液和透析液占比都应在 0%–100% 之间。',
-            fieldIds: ['replacementShare', 'dialysateShare'],
-          })
+        if (replacementShare < 0 || replacementShare > 100 || dialysateShare < 0 || dialysateShare > 100) {
+          add({ id: 'fluid.cvvhdf.ratio_out_of_range', severity: 'error', title: '液体占比超出范围', message: '置换液和透析液占比都应在 0%–100% 之间。', fieldIds: ['replacementShare', 'dialysateShare'] })
         }
-
         if (Math.abs(replacementShare + dialysateShare - 100) > 0.5) {
-          add({
-            id: 'fluid.cvvhdf.ratio_not_100',
-            severity: 'error',
-            title: '液体占比合计不为 100%',
-            message: '置换液占比 + 透析液占比需要合计为 100%。',
-            fieldIds: ['replacementShare', 'dialysateShare'],
-          })
+          add({ id: 'fluid.cvvhdf.ratio_not_100', severity: 'error', title: '液体占比合计不为 100%', message: '置换液占比 + 透析液占比需要合计为 100%。', fieldIds: ['replacementShare', 'dialysateShare'] })
         }
       }
     }
   }
 
   if ((mode === 'cvvh' || mode === 'cvvhdf') && !state.replacementPosition) {
-    add({
-      id: 'fluid.replacement_position.missing',
-      severity: 'info',
-      title: '尚未记录置换液稀释方式',
-      message: '前 / 后稀释会影响有效清除解释，并影响部分含钙方案的自动提示。',
-      fieldIds: ['replacementPosition'],
-    })
+    add({ id: 'fluid.replacement_position.missing', severity: 'info', title: '尚未记录置换液稀释方式', message: '前 / 后稀释会影响有效清除解释，并影响部分含钙方案提示。', fieldIds: ['replacementPosition'] })
   }
 
   if (mode === '__other__') {
-    add({
-      id: 'mode.other.unsupported',
-      severity: 'info',
-      title: '其他治疗模式仅作记录',
-      message: '当前版本不会对“其他”治疗模式套用自动液体计算公式。',
-      fieldIds: ['mode'],
-    })
+    add({ id: 'mode.other.unsupported', severity: 'info', title: '其他治疗模式仅作记录', message: '当前版本不会对“其他”治疗模式套用自动液体计算公式。', fieldIds: ['mode'] })
   }
 
   const anticoagulation = asString(state.anticoagulation)
-
   if (anticoagulation === 'citrate') {
     if (bloodFlow === undefined) {
-      add({
-        id: 'citrate.bloodFlow.missing',
-        severity: 'warning',
-        title: '枸橼酸计算缺少血流量',
-        message: '4% 枸橼酸钠初始泵速按血流量换算，请先填写血流量。',
-        fieldIds: ['bloodFlow'],
-      })
+      add({ id: 'citrate.bloodFlow.missing', severity: 'warning', title: '枸橼酸计算缺少血流量', message: '4% 枸橼酸钠初始泵速按血流量换算。', fieldIds: ['bloodFlow'] })
     }
-
     const preparation = asString(state.citratePreparation)
     if (!preparation) {
-      add({
-        id: 'citrate.preparation.missing',
-        severity: 'warning',
-        title: '缺少枸橼酸制剂',
-        message: '请选择实际使用的枸橼酸制剂。',
-        fieldIds: ['citratePreparation'],
-      })
+      add({ id: 'citrate.preparation.missing', severity: 'warning', title: '缺少枸橼酸制剂', message: '请选择实际使用的枸橼酸制剂。', fieldIds: ['citratePreparation'] })
     }
-
     if (preparation === '__other__') {
       const concentration = asNumber(state.citrateCustomMmolL)
       if (concentration === undefined) {
-        add({
-          id: 'citrate.custom_concentration.missing',
-          severity: 'warning',
-          title: '缺少自定义枸橼酸浓度',
-          message: '请输入实际枸橼酸根浓度，单位 mmol/L。',
-          fieldIds: ['citrateCustomMmolL'],
-        })
+        add({ id: 'citrate.custom_concentration.missing', severity: 'warning', title: '缺少自定义枸橼酸浓度', message: '请输入实际枸橼酸根浓度，单位 mmol/L。', fieldIds: ['citrateCustomMmolL'] })
       } else if (concentration <= 0) {
-        add({
-          id: 'citrate.custom_concentration.invalid',
-          severity: 'error',
-          title: '枸橼酸浓度无效',
-          message: '自定义枸橼酸根浓度必须大于 0 mmol/L。',
-          fieldIds: ['citrateCustomMmolL'],
-        })
+        add({ id: 'citrate.custom_concentration.invalid', severity: 'error', title: '枸橼酸浓度无效', message: '自定义枸橼酸根浓度必须大于 0 mmol/L。', fieldIds: ['citrateCustomMmolL'] })
       }
     }
-
     const citrateTarget = asNumber(state.citrateTarget)
     if (citrateTarget !== undefined) {
       if (citrateTarget <= 0) {
-        add({
-          id: 'citrate.target.invalid',
-          severity: 'error',
-          title: '目标枸橼酸浓度无效',
-          message: '目标体外血液枸橼酸浓度必须大于 0 mmol/L。',
-          fieldIds: ['citrateTarget'],
-        })
+        add({ id: 'citrate.target.invalid', severity: 'error', title: '目标枸橼酸浓度无效', message: '目标体外血液枸橼酸浓度必须大于 0 mmol/L。', fieldIds: ['citrateTarget'] })
       } else if (citrateTarget < 3 || citrateTarget > 4) {
-        add({
-          id: 'citrate.target.outside_initial_range',
-          severity: 'warning',
-          title: '目标枸橼酸浓度超出常用初始范围',
-          message: '当前输入不在传统 3–4 mmol/L 初始体外枸橼酸浓度范围内，请核对处方依据。',
-          fieldIds: ['citrateTarget'],
-        })
+        add({ id: 'citrate.target.outside_initial_range', severity: 'warning', title: '目标枸橼酸浓度超出常用初始范围', message: '当前输入不在传统 3–4 mmol/L 初始体外枸橼酸浓度范围内，请核对处方依据。', fieldIds: ['citrateTarget'] })
       }
     }
-
     if (!state.calciumFluidType) {
-      add({
-        id: 'citrate.calcium_fluid_type.missing',
-        severity: 'warning',
-        title: 'RCA 尚未选择处方液含钙情况',
-        message: '含钙 / 无钙方案会影响葡萄糖酸钙初始计算。',
-        fieldIds: ['calciumFluidType'],
-      })
+      add({ id: 'citrate.calcium_fluid_type.missing', severity: 'warning', title: 'RCA 尚未选择处方液含钙情况', message: '含钙 / 无钙方案会影响葡萄糖酸钙初始计算。', fieldIds: ['calciumFluidType'] })
     }
-
     if (!state.calciumGluconatePreparation) {
-      add({
-        id: 'citrate.calcium_preparation.missing',
-        severity: 'warning',
-        title: 'RCA 尚未选择补钙制剂',
-        message: '请选择实际补钙制剂后再查看补钙初始换算。',
-        fieldIds: ['calciumGluconatePreparation'],
-      })
+      add({ id: 'citrate.calcium_preparation.missing', severity: 'warning', title: 'RCA 尚未选择补钙制剂', message: '请选择实际补钙制剂后再查看补钙初始换算。', fieldIds: ['calciumGluconatePreparation'] })
     }
-
     if (preparation === 'citrate_replacement_0_5pct') {
-      add({
-        id: 'citrate.0_5pct.manual',
-        severity: 'info',
-        title: '0.5% 枸橼酸盐置换液需按整套方案处理',
-        message: '当前版本不会把 0.5% 枸橼酸盐置换液错误套入 4% 枸橼酸钠独立泵速公式。',
-        fieldIds: ['citratePreparation'],
-      })
+      add({ id: 'citrate.0_5pct.manual', severity: 'info', title: '0.5% 枸橼酸盐置换液需按整套方案处理', message: '当前版本不会把它套入 4% 枸橼酸钠独立泵速公式。', fieldIds: ['citratePreparation'] })
     }
   }
 
   if (anticoagulation === 'heparin') {
     const heparinConcentration = asNumber(state.heparinConcentration)
     if (heparinConcentration !== undefined && heparinConcentration <= 0) {
-      add({
-        id: 'heparin.concentration.invalid',
-        severity: 'error',
-        title: '肝素配置浓度无效',
-        message: '肝素配置浓度必须大于 0 IU/mL。',
-        fieldIds: ['heparinConcentration'],
-      })
+      add({ id: 'heparin.concentration.invalid', severity: 'error', title: '肝素配置浓度无效', message: '肝素配置浓度必须大于 0 IU/mL。', fieldIds: ['heparinConcentration'] })
     }
   }
 
   if (anticoagulation === '__other__') {
-    add({
-      id: 'anticoagulation.other.unsupported',
-      severity: 'info',
-      title: '其他抗凝方案仅作记录',
-      message: '当前自动计算只覆盖局部枸橼酸抗凝和普通肝素。',
-      fieldIds: ['anticoagulation'],
-    })
+    add({ id: 'anticoagulation.other.unsupported', severity: 'info', title: '其他抗凝方案仅作记录', message: '当前自动计算只覆盖局部枸橼酸抗凝和普通肝素。', fieldIds: ['anticoagulation'] })
   }
 
-  const bicarbonateFields = [
-    'bicarbonatePreparation',
+  // NaHCO3 为选填模块：仅选择制剂不启动完整性校验；开始填写计算参数后才检查其余字段。
+  const bicarbonateActive = [
     'bicarbonateCustomMmolMl',
     'bicarbonateBaseMmolL',
     'bicarbonateTargetMmolL',
     'bicarbonateCarrierFlowMlH',
-  ]
-  const bicarbonateActive = bicarbonateFields.some((id) => visibleIds.has(id) && isSet(state[id]))
+  ].some((id) => visibleIds.has(id) && isSet(state[id]))
 
   if (bicarbonateActive) {
     const preparation = asString(state.bicarbonatePreparation)
@@ -371,111 +202,28 @@ export function validatePrescription(
     const target = asNumber(state.bicarbonateTargetMmolL)
     const carrier = asNumber(state.bicarbonateCarrierFlowMlH)
 
-    if (!preparation) {
-      add({
-        id: 'bicarbonate.preparation.missing',
-        severity: 'warning',
-        title: '补碱计算缺少 NaHCO₃ 制剂',
-        message: '请选择实际 NaHCO₃ 制剂规格。',
-        fieldIds: ['bicarbonatePreparation'],
-      })
-    }
-
+    if (!preparation) add({ id: 'bicarbonate.preparation.missing', severity: 'warning', title: '补碱计算缺少 NaHCO₃ 制剂', message: '请选择实际 NaHCO₃ 制剂规格。', fieldIds: ['bicarbonatePreparation'] })
     if (preparation === '__other__') {
       const concentration = asNumber(state.bicarbonateCustomMmolMl)
-      if (concentration === undefined) {
-        add({
-          id: 'bicarbonate.custom_concentration.missing',
-          severity: 'warning',
-          title: '缺少 NaHCO₃ 实际浓度',
-          message: '请输入自定义制剂浓度，单位 mmol/mL。',
-          fieldIds: ['bicarbonateCustomMmolMl'],
-        })
-      } else if (concentration <= 0) {
-        add({
-          id: 'bicarbonate.custom_concentration.invalid',
-          severity: 'error',
-          title: 'NaHCO₃ 浓度无效',
-          message: '自定义 NaHCO₃ 浓度必须大于 0 mmol/mL。',
-          fieldIds: ['bicarbonateCustomMmolMl'],
-        })
-      }
+      if (concentration === undefined) add({ id: 'bicarbonate.custom_concentration.missing', severity: 'warning', title: '缺少 NaHCO₃ 实际浓度', message: '请输入自定义制剂浓度，单位 mmol/mL。', fieldIds: ['bicarbonateCustomMmolMl'] })
+      else if (concentration <= 0) add({ id: 'bicarbonate.custom_concentration.invalid', severity: 'error', title: 'NaHCO₃ 浓度无效', message: '自定义 NaHCO₃ 浓度必须大于 0 mmol/mL。', fieldIds: ['bicarbonateCustomMmolMl'] })
     }
-
-    if (base === undefined) {
-      add({
-        id: 'bicarbonate.base.missing',
-        severity: 'warning',
-        title: '缺少基础液 HCO₃⁻ 浓度',
-        message: '请按实际基础处方液标签填写。',
-        fieldIds: ['bicarbonateBaseMmolL'],
-      })
-    } else if (base < 0) {
-      add({
-        id: 'bicarbonate.base.invalid',
-        severity: 'error',
-        title: '基础液 HCO₃⁻ 浓度无效',
-        message: '处方液 HCO₃⁻ 浓度不能为负数。',
-        fieldIds: ['bicarbonateBaseMmolL'],
-      })
-    }
-
-    if (target === undefined) {
-      add({
-        id: 'bicarbonate.target.missing',
-        severity: 'warning',
-        title: '缺少目标 HCO₃⁻ 浓度',
-        message: '目标浓度需由医生根据实时酸碱状态设定。',
-        fieldIds: ['bicarbonateTargetMmolL'],
-      })
-    } else if (target < 0) {
-      add({
-        id: 'bicarbonate.target.invalid',
-        severity: 'error',
-        title: '目标 HCO₃⁻ 浓度无效',
-        message: '目标处方液 HCO₃⁻ 浓度不能为负数。',
-        fieldIds: ['bicarbonateTargetMmolL'],
-      })
-    }
-
-    if (base !== undefined && target !== undefined && target < base) {
-      add({
-        id: 'bicarbonate.target_below_base',
-        severity: 'error',
-        title: '目标 HCO₃⁻ 低于基础液浓度',
-        message: '加入 NaHCO₃ 只能升高浓度；若目标更低，应减少额外补碱或更换基础液方案。',
-        fieldIds: ['bicarbonateBaseMmolL', 'bicarbonateTargetMmolL'],
-      })
-    }
-
-    if (carrier === undefined) {
-      add({
-        id: 'bicarbonate.carrier.missing',
-        severity: 'warning',
-        title: '缺少需要补碱的基础液流量',
-        message: '请填写实际需要通过该 NaHCO₃ 泵补碱的处方液流量。',
-        fieldIds: ['bicarbonateCarrierFlowMlH'],
-      })
-    } else if (carrier <= 0) {
-      add({
-        id: 'bicarbonate.carrier.invalid',
-        severity: 'error',
-        title: '补碱基础液流量无效',
-        message: '需要补碱的基础处方液流量必须大于 0 mL/h。',
-        fieldIds: ['bicarbonateCarrierFlowMlH'],
-      })
-    }
+    if (base === undefined) add({ id: 'bicarbonate.base.missing', severity: 'warning', title: '缺少基础液 HCO₃⁻ 浓度', message: '请按实际基础处方液标签填写。', fieldIds: ['bicarbonateBaseMmolL'] })
+    else if (base < 0) add({ id: 'bicarbonate.base.invalid', severity: 'error', title: '基础液 HCO₃⁻ 浓度无效', message: '处方液 HCO₃⁻ 浓度不能为负数。', fieldIds: ['bicarbonateBaseMmolL'] })
+    if (target === undefined) add({ id: 'bicarbonate.target.missing', severity: 'warning', title: '缺少目标 HCO₃⁻ 浓度', message: '目标浓度需由医生根据实时酸碱状态设定。', fieldIds: ['bicarbonateTargetMmolL'] })
+    else if (target < 0) add({ id: 'bicarbonate.target.invalid', severity: 'error', title: '目标 HCO₃⁻ 浓度无效', message: '目标处方液 HCO₃⁻ 浓度不能为负数。', fieldIds: ['bicarbonateTargetMmolL'] })
+    if (base !== undefined && target !== undefined && target < base) add({ id: 'bicarbonate.target_below_base', severity: 'error', title: '目标 HCO₃⁻ 低于基础液浓度', message: '加入 NaHCO₃ 只能升高浓度；若目标更低，应调整基础液方案。', fieldIds: ['bicarbonateBaseMmolL', 'bicarbonateTargetMmolL'] })
+    if (carrier === undefined) add({ id: 'bicarbonate.carrier.missing', severity: 'warning', title: '缺少需要补碱的基础液流量', message: '请填写实际需要通过该 NaHCO₃ 泵补碱的处方液流量。', fieldIds: ['bicarbonateCarrierFlowMlH'] })
+    else if (carrier <= 0) add({ id: 'bicarbonate.carrier.invalid', severity: 'error', title: '补碱基础液流量无效', message: '需要补碱的基础处方液流量必须大于 0 mL/h。', fieldIds: ['bicarbonateCarrierFlowMlH'] })
   }
 
-  const potassiumFields = [
-    'potassiumContext',
-    'potassiumChloridePreparation',
+  // KCl 也为选填模块：仅选择高钾情景或制剂规格，不强制填写整套配液参数。
+  const potassiumActive = [
     'potassiumCustomMmolMl',
     'potassiumBaseMmolL',
     'potassiumTargetMmolL',
     'potassiumBagVolumeL',
-  ]
-  const potassiumActive = potassiumFields.some((id) => visibleIds.has(id) && isSet(state[id]))
+  ].some((id) => visibleIds.has(id) && isSet(state[id]))
 
   if (potassiumActive) {
     const preparation = asString(state.potassiumChloridePreparation)
@@ -483,109 +231,21 @@ export function validatePrescription(
     const target = asNumber(state.potassiumTargetMmolL)
     const bagVolume = asNumber(state.potassiumBagVolumeL)
 
-    if (!preparation) {
-      add({
-        id: 'potassium.preparation.missing',
-        severity: 'warning',
-        title: '补钾计算缺少 KCl 制剂',
-        message: '请选择实际 KCl 制剂规格。',
-        fieldIds: ['potassiumChloridePreparation'],
-      })
-    }
-
+    if (!preparation) add({ id: 'potassium.preparation.missing', severity: 'warning', title: '补钾计算缺少 KCl 制剂', message: '请选择实际 KCl 制剂规格。', fieldIds: ['potassiumChloridePreparation'] })
     if (preparation === '__other__') {
       const concentration = asNumber(state.potassiumCustomMmolMl)
-      if (concentration === undefined) {
-        add({
-          id: 'potassium.custom_concentration.missing',
-          severity: 'warning',
-          title: '缺少 KCl 实际浓度',
-          message: '请输入自定义制剂浓度，单位 mmol/mL。',
-          fieldIds: ['potassiumCustomMmolMl'],
-        })
-      } else if (concentration <= 0) {
-        add({
-          id: 'potassium.custom_concentration.invalid',
-          severity: 'error',
-          title: 'KCl 浓度无效',
-          message: '自定义 KCl 浓度必须大于 0 mmol/mL。',
-          fieldIds: ['potassiumCustomMmolMl'],
-        })
-      }
+      if (concentration === undefined) add({ id: 'potassium.custom_concentration.missing', severity: 'warning', title: '缺少 KCl 实际浓度', message: '请输入自定义制剂浓度，单位 mmol/mL。', fieldIds: ['potassiumCustomMmolMl'] })
+      else if (concentration <= 0) add({ id: 'potassium.custom_concentration.invalid', severity: 'error', title: 'KCl 浓度无效', message: '自定义 KCl 浓度必须大于 0 mmol/mL。', fieldIds: ['potassiumCustomMmolMl'] })
     }
-
-    if (base === undefined) {
-      add({
-        id: 'potassium.base.missing',
-        severity: 'warning',
-        title: '缺少基础液钾浓度',
-        message: '请填写实际基础置换液 / 透析液钾浓度。',
-        fieldIds: ['potassiumBaseMmolL'],
-      })
-    } else if (base < 0) {
-      add({
-        id: 'potassium.base.invalid',
-        severity: 'error',
-        title: '基础液钾浓度无效',
-        message: '基础处方液钾浓度不能为负数。',
-        fieldIds: ['potassiumBaseMmolL'],
-      })
-    }
-
-    if (target === undefined) {
-      add({
-        id: 'potassium.target.missing',
-        severity: 'warning',
-        title: '缺少目标处方液钾浓度',
-        message: '目标浓度需由医生根据实时血钾设定。',
-        fieldIds: ['potassiumTargetMmolL'],
-      })
-    } else if (target < 0) {
-      add({
-        id: 'potassium.target.invalid',
-        severity: 'error',
-        title: '目标处方液钾浓度无效',
-        message: '目标处方液钾浓度不能为负数。',
-        fieldIds: ['potassiumTargetMmolL'],
-      })
-    }
-
-    if (base !== undefined && target !== undefined && target < base) {
-      add({
-        id: 'potassium.target_below_base',
-        severity: 'error',
-        title: '目标钾浓度低于基础液',
-        message: '加入 KCl 不能降低钾浓度，应改用更低钾或无钾基础液。',
-        fieldIds: ['potassiumBaseMmolL', 'potassiumTargetMmolL'],
-      })
-    }
-
-    if (bagVolume === undefined) {
-      add({
-        id: 'potassium.bag_volume.missing',
-        severity: 'warning',
-        title: '缺少单袋基础液体积',
-        message: '需要单袋体积才能换算 KCl 的 mL/袋。',
-        fieldIds: ['potassiumBagVolumeL'],
-      })
-    } else if (bagVolume <= 0) {
-      add({
-        id: 'potassium.bag_volume.invalid',
-        severity: 'error',
-        title: '单袋基础液体积无效',
-        message: '单袋基础处方液体积必须大于 0 L。',
-        fieldIds: ['potassiumBagVolumeL'],
-      })
-    }
-
+    if (base === undefined) add({ id: 'potassium.base.missing', severity: 'warning', title: '缺少基础液钾浓度', message: '请填写实际基础置换液 / 透析液钾浓度。', fieldIds: ['potassiumBaseMmolL'] })
+    else if (base < 0) add({ id: 'potassium.base.invalid', severity: 'error', title: '基础液钾浓度无效', message: '基础处方液钾浓度不能为负数。', fieldIds: ['potassiumBaseMmolL'] })
+    if (target === undefined) add({ id: 'potassium.target.missing', severity: 'warning', title: '缺少目标处方液钾浓度', message: '目标浓度需由医生根据实时血钾设定。', fieldIds: ['potassiumTargetMmolL'] })
+    else if (target < 0) add({ id: 'potassium.target.invalid', severity: 'error', title: '目标处方液钾浓度无效', message: '目标处方液钾浓度不能为负数。', fieldIds: ['potassiumTargetMmolL'] })
+    if (base !== undefined && target !== undefined && target < base) add({ id: 'potassium.target_below_base', severity: 'error', title: '目标钾浓度低于基础液', message: '加入 KCl 不能降低钾浓度，应改用更低钾或无钾基础液。', fieldIds: ['potassiumBaseMmolL', 'potassiumTargetMmolL'] })
+    if (bagVolume === undefined) add({ id: 'potassium.bag_volume.missing', severity: 'warning', title: '缺少单袋基础液体积', message: '需要单袋体积才能换算 KCl 的 mL/袋。', fieldIds: ['potassiumBagVolumeL'] })
+    else if (bagVolume <= 0) add({ id: 'potassium.bag_volume.invalid', severity: 'error', title: '单袋基础液体积无效', message: '单袋基础处方液体积必须大于 0 L。', fieldIds: ['potassiumBagVolumeL'] })
     if (state.potassiumContext === 'hyperkalemia' && target !== undefined && target > 2) {
-      add({
-        id: 'potassium.hyperkalemia.target_above_guideline_range',
-        severity: 'warning',
-        title: '高钾血症目标处方液钾浓度偏高',
-        message: '2026版指南对高钾血症 CRRT 建议使用钾浓度 0–2 mmol/L 的置换液 / 透析液，请核对当前目标。',
-        fieldIds: ['potassiumContext', 'potassiumTargetMmolL'],
-      })
+      add({ id: 'potassium.hyperkalemia.target_above_guideline_range', severity: 'warning', title: '高钾血症目标处方液钾浓度偏高', message: '2026版指南对高钾血症 CRRT 建议使用钾浓度 0–2 mmol/L 的置换液 / 透析液，请核对当前目标。', fieldIds: ['potassiumContext', 'potassiumTargetMmolL'] })
     }
   }
 
@@ -602,14 +262,7 @@ export function validatePrescription(
     }
   }
 
-  return {
-    issues,
-    errors,
-    warnings,
-    infos,
-    byField,
-    hasErrors: errors.length > 0,
-  }
+  return { issues, errors, warnings, infos, byField, hasErrors: errors.length > 0 }
 }
 
 export function validationLabel(fieldId: string) {
